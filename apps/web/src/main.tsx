@@ -73,6 +73,33 @@ type ScanResult = {
   assets: MediaAsset[];
 };
 
+type QueryHypothesis = {
+  title: string;
+  year?: number;
+  media_type?: string;
+  external_ids?: Record<string, string>;
+  source: string;
+};
+
+type ParsedIdentity = {
+  id: string;
+  media_asset_id: string;
+  raw_title: string;
+  normalized_title: string;
+  comparison_keys?: string[];
+  year?: number;
+  edition?: string;
+  release_group?: string;
+  technical_tags?: string[];
+  media_type_hint?: string;
+  parent_dir_name?: string;
+  hypotheses?: QueryHypothesis[];
+  confidence: number;
+  parser_version: string;
+  state: string;
+  created_at: string;
+};
+
 type RuntimeConfig = {
   server: {
     listen: string;
@@ -167,6 +194,15 @@ function formatBytes(size: number) {
   return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }
 
+function formatExternalIDs(ids?: Record<string, string>) {
+  if (!ids || Object.keys(ids).length === 0) {
+    return '';
+  }
+  return Object.entries(ids)
+    .map(([provider, id]) => `${provider}:${id}`)
+    .join(' ');
+}
+
 function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig | null>(null);
@@ -175,6 +211,7 @@ function App() {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [plans, setPlans] = useState<ActionPlan[]>([]);
   const [candidates, setCandidates] = useState<Record<string, Candidate[]>>({});
+  const [identities, setIdentities] = useState<Record<string, ParsedIdentity>>({});
   const [rootPath, setRootPath] = useState('');
   const [selectedRootId, setSelectedRootId] = useState('');
   const [activeAssetId, setActiveAssetId] = useState('');
@@ -191,6 +228,7 @@ function App() {
     [roots, selectedRootId],
   );
   const activeCandidates = activeAsset ? candidates[activeAsset.id] ?? [] : [];
+  const activeIdentity = activeAsset ? identities[activeAsset.id] : undefined;
   const activePlans = activeAsset ? plans.filter((plan) => plan.asset_id === activeAsset.id) : plans;
   const confirmedAssets = assets.filter((asset) => asset.match_state === 'confirmed').length;
   const pendingAssets = assets.length - confirmedAssets;
@@ -231,6 +269,19 @@ function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Candidate request failed');
     }
+  }
+
+  async function loadIdentity(assetId: string) {
+    try {
+      const nextIdentity = await api<ParsedIdentity>(`/api/assets/${assetId}/identity`);
+      setIdentities((current) => ({ ...current, [assetId]: nextIdentity }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Identity request failed');
+    }
+  }
+
+  async function loadAssetDetails(assetId: string) {
+    await Promise.all([loadCandidates(assetId), loadIdentity(assetId)]);
   }
 
   async function addRoot(event: FormEvent<HTMLFormElement>) {
@@ -275,7 +326,7 @@ function App() {
       await refresh();
       if (result.assets[0]) {
         setActiveAssetId(result.assets[0].id);
-        await loadCandidates(result.assets[0].id);
+        await loadAssetDetails(result.assets[0].id);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scan failed');
@@ -334,7 +385,7 @@ function App() {
 
   useEffect(() => {
     if (activeAsset?.id) {
-      void loadCandidates(activeAsset.id);
+      void loadAssetDetails(activeAsset.id);
     }
   }, [activeAsset?.id]);
 
@@ -472,6 +523,53 @@ function App() {
               </div>
 
               <p className="path-line">{activeAsset.relative_path}</p>
+
+              {activeIdentity ? (
+                <section className="preflight-panel" aria-label="Preflight identity">
+                  <div className="panel-heading slim">
+                    <h2>Preflight</h2>
+                    <span className="pill">{activeIdentity.parser_version}</span>
+                  </div>
+                  <div className="preflight-grid">
+                    <div>
+                      <span className="label compact">Raw title</span>
+                      <strong>{activeIdentity.raw_title || 'Unknown'}</strong>
+                    </div>
+                    <div>
+                      <span className="label compact">Media type</span>
+                      <strong>{activeIdentity.media_type_hint || 'unknown'}</strong>
+                    </div>
+                    <div>
+                      <span className="label compact">Edition</span>
+                      <strong>{activeIdentity.edition || 'none'}</strong>
+                    </div>
+                    <div>
+                      <span className="label compact">Confidence</span>
+                      <strong>{Math.round(activeIdentity.confidence * 100)}%</strong>
+                    </div>
+                  </div>
+                  <div className="tag-row">
+                    {(activeIdentity.technical_tags ?? []).length === 0 ? (
+                      <span>no technical tags</span>
+                    ) : activeIdentity.technical_tags?.map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                  <div className="hypothesis-list">
+                    {(activeIdentity.hypotheses ?? []).slice(0, 4).map((hypothesis, index) => (
+                      <div className="hypothesis-row" key={`${hypothesis.source}-${hypothesis.title}-${index}`}>
+                        <strong>{hypothesis.title || 'ID lookup'}</strong>
+                        <span>{hypothesis.year ?? 'any year'}</span>
+                        <span>{hypothesis.media_type || 'any type'}</span>
+                        {formatExternalIDs(hypothesis.external_ids) ? (
+                          <span>{formatExternalIDs(hypothesis.external_ids)}</span>
+                        ) : null}
+                        <small>{hypothesis.source}</small>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               <div className="candidate-grid">
                 {activeCandidates.length === 0 ? (

@@ -80,6 +80,7 @@ curl -X POST http://127.0.0.1:8787/api/scans \
   -d '{"library_root_id":"root_xxx"}'
 
 curl http://127.0.0.1:8787/api/assets
+curl http://127.0.0.1:8787/api/assets/asset_xxx/identity
 curl http://127.0.0.1:8787/api/assets/asset_xxx/candidates
 
 curl -X POST http://127.0.0.1:8787/api/assets/asset_xxx/confirm \
@@ -96,5 +97,5 @@ The generated plan is dry-run only. It never moves, deletes, overwrites, or writ
 ## Current limitations
 
 - The persistence layer is still a compile-safe MVP placeholder; the authority baseline still targets SQLite with `modernc.org/sqlite` and WAL for the production path.
-- Mock metadata is implemented; Local NFO and TMDB adapters remain next steps before Alpha Core.
-- `ffprobe` media probing remains next step.
+- Mock metadata is implemented; Local NFO parsing and TMDB query planning are in place, but the real TMDB HTTP adapter remains a next step before Alpha Core.
+- `ffprobe` media probing is fail-soft: scans continue when the binary is missing or a file is malformed.

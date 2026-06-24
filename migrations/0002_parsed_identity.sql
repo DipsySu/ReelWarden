@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS parsed_identity (
+  id TEXT PRIMARY KEY,
+  media_asset_id TEXT NOT NULL,
+  raw_title TEXT NOT NULL,
+  normalized_title TEXT NOT NULL,
+  comparison_keys_json TEXT NOT NULL,
+  year INTEGER,
+  edition TEXT,
+  release_group TEXT,
+  technical_tags_json TEXT NOT NULL,
+  media_type_hint TEXT,
+  parent_dir_name TEXT,
+  hypotheses_json TEXT NOT NULL,
+  parser_version TEXT NOT NULL,
+  confidence REAL NOT NULL,
+  state TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(media_asset_id),
+  FOREIGN KEY(media_asset_id) REFERENCES media_assets(id)
+);

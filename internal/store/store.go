@@ -25,10 +25,84 @@ type MediaAsset struct {
 	ScanState            string `json:"scan_state"`
 	ParsedTitle          string `json:"parsed_title"`
 	ParsedYear           int    `json:"parsed_year,omitempty"`
+	ParsedIdentityID     string `json:"parsed_identity_id,omitempty"`
 	MatchState           string `json:"match_state"`
 	ConfirmedCandidateID string `json:"confirmed_candidate_id,omitempty"`
 	CreatedAt            string `json:"created_at"`
 	UpdatedAt            string `json:"updated_at"`
+}
+
+// ScoreBand is the §14.7 confidence band used to route the resolver ladder.
+type ScoreBand = string
+
+const (
+	BandHigh   ScoreBand = "high"   // rank_score >= 0.95; preselect, still human-confirm
+	BandMedium ScoreBand = "medium" // 0.80 <= rank_score < 0.95; require review
+	BandLow    ScoreBand = "low"    // rank_score < 0.80; escalate or unresolved
+)
+
+// §14.7 band thresholds. rank_score is an ordering heuristic, not a probability.
+const (
+	BandHighThreshold   = 0.95 // rank_score >= 0.95 -> high
+	BandMediumThreshold = 0.80 // 0.80 <= rank_score < 0.95 -> medium
+)
+
+// BandFor maps a rank_score to its §14.7 ScoreBand.
+func BandFor(rankScore float64) ScoreBand {
+	switch {
+	case rankScore >= BandHighThreshold:
+		return BandHigh
+	case rankScore >= BandMediumThreshold:
+		return BandMedium
+	default:
+		return BandLow
+	}
+}
+
+// ParsedIdentity is the file-name parse result (§9.2, extended per the resolver
+// pipeline "Data model contract"). It supersedes parser.Result. Confidence is a
+// heuristic score, NOT a probability. NormalizedTitle is for comparison only and
+// must never be shown to the user (§12.3).
+type ParsedIdentity struct {
+	ID              string            `json:"id"`
+	MediaAssetID    string            `json:"media_asset_id"`
+	RawTitle        string            `json:"raw_title"`         // title region of the file name, pre-normalization
+	NormalizedTitle string            `json:"normalized_title"`  // §12.3 normalization; comparison use only, never display
+	ComparisonKeys  []string          `json:"comparison_keys"`   // extra match keys, e.g. simplified/traditional fold (§12.3)
+	Year            int               `json:"year,omitempty"`    // 0 if absent; title-aware (§12.4)
+	Edition         string            `json:"edition,omitempty"` // Director's Cut / Extended / Remux-as-edition (§9.2)
+	ReleaseGroup    string            `json:"release_group,omitempty"`
+	TechnicalTags   []string          `json:"technical_tags"`            // §12.2 full set
+	MediaTypeHint   string            `json:"media_type_hint,omitempty"` // "" | movie | tv | tv_liveaction | ova | special
+	ParentDirName   string            `json:"parent_dir_name,omitempty"` // local untrusted; type/title signal (R2)
+	Hypotheses      []QueryHypothesis `json:"hypotheses"`                // ordered most-constrained first (§12.6)
+	Confidence      float64           `json:"confidence"`                // heuristic, NOT a probability (§9.2)
+	ParserVersion   string            `json:"parser_version"`
+	State           string            `json:"state"` // parsed | unresolved
+	CreatedAt       string            `json:"created_at"`
+}
+
+// ToIdentitySeed builds a minimal ParsedIdentity from an already-scanned asset,
+// pre-populating the fields the resolver ladder starts from (R0 input preservation).
+// The richer fields (NormalizedTitle, ComparisonKeys, Hypotheses, ...) are filled
+// by the parser/normalization rungs.
+func (a MediaAsset) ToIdentitySeed() ParsedIdentity {
+	return ParsedIdentity{
+		MediaAssetID: a.ID,
+		RawTitle:     a.ParsedTitle,
+		Year:         a.ParsedYear,
+		State:        "parsed",
+	}
+}
+
+// QueryHypothesis is a single constrained provider-query hypothesis emitted by
+// the parser/AI. Deterministic code issues the query; AI never does (§14.1, §7.1).
+type QueryHypothesis struct {
+	Title       string            `json:"title"`
+	Year        int               `json:"year,omitempty"`
+	MediaType   string            `json:"media_type,omitempty"`   // constrains the provider query (movie vs tv endpoint)
+	ExternalIDs map[string]string `json:"external_ids,omitempty"` // local-only exact IDs, e.g. imdb/tmdb/tvdb
+	Source      string            `json:"source"`                 // rule | parent_dir | romanized | comparison_key | local_external_id | ai_repair
 }
 type Candidate struct {
 	ID         string     `json:"id"`
@@ -59,16 +133,18 @@ type ActionPlan struct {
 }
 
 type Store struct {
-	mu           sync.RWMutex
-	roots        map[string]LibraryRoot
-	assets       map[string]MediaAsset
-	assetsByPath map[string]string
-	candidates   map[string][]Candidate
-	plans        map[string]ActionPlan
+	mu              sync.RWMutex
+	roots           map[string]LibraryRoot
+	assets          map[string]MediaAsset
+	assetsByPath    map[string]string
+	candidates      map[string][]Candidate
+	plans           map[string]ActionPlan
+	identities      map[string]ParsedIdentity
+	identityByAsset map[string]string
 }
 
 func New() *Store {
-	return &Store{roots: map[string]LibraryRoot{}, assets: map[string]MediaAsset{}, assetsByPath: map[string]string{}, candidates: map[string][]Candidate{}, plans: map[string]ActionPlan{}}
+	return &Store{roots: map[string]LibraryRoot{}, assets: map[string]MediaAsset{}, assetsByPath: map[string]string{}, candidates: map[string][]Candidate{}, plans: map[string]ActionPlan{}, identities: map[string]ParsedIdentity{}, identityByAsset: map[string]string{}}
 }
 func NewID(prefix string) string {
 	var b [8]byte
@@ -200,4 +276,54 @@ func (s *Store) Plans() []ActionPlan {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt < out[j].CreatedAt })
 	return out
+}
+
+// UpsertParsedIdentity stores a ParsedIdentity keyed by MediaAssetID (one per
+// asset). It links the owning MediaAsset via ParsedIdentityID when present.
+func (s *Store) UpsertParsedIdentity(p ParsedIdentity) ParsedIdentity {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if id, ok := s.identityByAsset[p.MediaAssetID]; ok && p.MediaAssetID != "" {
+		old := s.identities[id]
+		p.ID = id
+		p.CreatedAt = old.CreatedAt
+	} else {
+		if p.ID == "" {
+			p.ID = NewID("pid")
+		}
+		p.CreatedAt = now()
+		if p.MediaAssetID != "" {
+			s.identityByAsset[p.MediaAssetID] = p.ID
+		}
+	}
+	if p.State == "" {
+		p.State = "parsed"
+	}
+	s.identities[p.ID] = p
+	if a, ok := s.assets[p.MediaAssetID]; ok && a.ParsedIdentityID != p.ID {
+		a.ParsedIdentityID = p.ID
+		a.UpdatedAt = now()
+		s.assets[a.ID] = a
+	}
+	return p
+}
+
+// ParsedIdentity returns the identity by its id.
+func (s *Store) ParsedIdentity(id string) (ParsedIdentity, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	p, ok := s.identities[id]
+	return p, ok
+}
+
+// ParsedIdentityForAsset returns the identity associated with a MediaAsset.
+func (s *Store) ParsedIdentityForAsset(assetID string) (ParsedIdentity, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	id, ok := s.identityByAsset[assetID]
+	if !ok {
+		return ParsedIdentity{}, false
+	}
+	p, ok := s.identities[id]
+	return p, ok
 }

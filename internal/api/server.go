@@ -10,7 +10,6 @@ import (
 
 	"github.com/reelwarden/reelwarden/internal/compliance"
 	"github.com/reelwarden/reelwarden/internal/config"
-	"github.com/reelwarden/reelwarden/internal/metadata"
 	"github.com/reelwarden/reelwarden/internal/planner"
 	"github.com/reelwarden/reelwarden/internal/scanner"
 	"github.com/reelwarden/reelwarden/internal/store"
@@ -114,9 +113,6 @@ func (s *Server) scan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "SCAN_FAILED", err)
 		return
 	}
-	for _, a := range res.Assets {
-		s.st.SaveCandidates(a.ID, metadata.MockCandidates(a))
-	}
 	writeJSON(w, http.StatusOK, res)
 }
 func (s *Server) assets(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +123,15 @@ func (s *Server) assetSubroutes(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(rest, "/"), "/")
 	if len(parts) == 2 && parts[1] == "candidates" && r.Method == http.MethodGet {
 		writeJSON(w, http.StatusOK, s.st.Candidates(parts[0]))
+		return
+	}
+	if len(parts) == 2 && parts[1] == "identity" && r.Method == http.MethodGet {
+		identity, ok := s.st.ParsedIdentityForAsset(parts[0])
+		if !ok {
+			writeError(w, http.StatusNotFound, "PARSED_IDENTITY_NOT_FOUND", errors.New("parsed identity not found"))
+			return
+		}
+		writeJSON(w, http.StatusOK, identity)
 		return
 	}
 	if len(parts) == 2 && parts[1] == "confirm" && r.Method == http.MethodPost {

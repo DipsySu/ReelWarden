@@ -220,6 +220,10 @@ h3 {
   gap: 12px;
 }
 
+.panel-heading.slim {
+  margin-bottom: 12px;
+}
+
 .root-form,
 .asset-list,
 .plan-list,
@@ -338,6 +342,83 @@ label,
   margin: 14px 0 0;
   color: #415063;
   font-size: 14px;
+}
+
+.preflight-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  border: 1px solid #d6dee8;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.preflight-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.preflight-grid > div {
+  min-width: 0;
+  border: 1px solid #e4e9f0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.preflight-grid strong {
+  display: block;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.tag-row,
+.hypothesis-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-row span {
+  border-radius: 999px;
+  background: #e8f4f1;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 5px 8px;
+}
+
+.hypothesis-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) repeat(4, auto);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  border-top: 1px solid #e4e9f0;
+  padding-top: 8px;
+  color: #415063;
+  font-size: 12px;
+}
+
+.hypothesis-row strong {
+  color: #111827;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.hypothesis-row span,
+.hypothesis-row small {
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #5a6878;
+  font-weight: 700;
+  padding: 4px 7px;
+  white-space: nowrap;
 }
 
 .candidate-grid {
@@ -534,6 +615,8 @@ dd {
 
   .asset-summary,
   .candidate-grid,
+  .preflight-grid,
+  .hypothesis-row,
   .input-row,
   dl div {
     grid-template-columns: 1fr;
