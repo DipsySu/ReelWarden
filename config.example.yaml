@@ -1,0 +1,26 @@
+server:
+  listen: 127.0.0.1:8787
+  data_dir: ./data
+  log_level: info
+
+database:
+  driver: modernc-sqlite
+  path: ./data/reelwarden.db
+  wal: true
+  max_open_conns: 1
+  backup_dir: ./data/backups
+
+metadata:
+  providers:
+    mock:
+      enabled: true
+    local_nfo:
+      enabled: true
+    tmdb:
+      enabled: false
+
+ai:
+  enabled: false
+
+compliance:
+  tmdb_ai: blocked
