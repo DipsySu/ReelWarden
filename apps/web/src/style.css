@@ -36,6 +36,13 @@ button:hover:not(:disabled) {
   color: #0f766e;
 }
 
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(14, 165, 141, 0.22);
+  outline-offset: 2px;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -150,9 +157,42 @@ h3 {
   color: #0f766e;
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 10px;
+  max-width: 1440px;
+  margin: 0 auto 16px;
+}
+
+.summary-tile {
+  min-height: 76px;
+  border: 1px solid #d6dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.summary-tile span,
+.summary-tile small {
+  display: block;
+  color: #5a6878;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.summary-tile strong {
+  display: block;
+  margin-top: 4px;
+  color: #111827;
+  font-size: 24px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
 .workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(420px, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(280px, 340px) minmax(420px, 1fr) minmax(300px, 380px);
   gap: 16px;
   max-width: 1440px;
   margin: 0 auto;
@@ -183,7 +223,8 @@ h3 {
 .root-form,
 .asset-list,
 .plan-list,
-.gate-list {
+.gate-list,
+.runtime-stack {
   display: grid;
   gap: 10px;
   margin-top: 18px;
@@ -219,6 +260,30 @@ label,
 .wide {
   width: 100%;
   margin-top: 12px;
+}
+
+.root-chip {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  border: 1px solid #d6dee8;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 10px;
+}
+
+.root-chip span {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.root-chip strong {
+  color: #415063;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .asset-row {
@@ -324,6 +389,11 @@ label,
   color: #b45309;
 }
 
+.pill.enabled {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
 .evidence-list {
   display: flex;
   flex-wrap: wrap;
@@ -365,10 +435,71 @@ label,
   padding-top: 16px;
 }
 
+.runtime-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d6dee8;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.runtime-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.label.compact {
+  margin: 0 0 4px;
+}
+
+.runtime-head strong {
+  display: block;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+dl div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px;
+}
+
+dt {
+  color: #5a6878;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+dd {
+  margin: 0;
+  color: #17202a;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .gate-row {
   min-height: 38px;
   color: #415063;
   font-size: 13px;
+}
+
+.gate-row small {
+  display: block;
+  margin-top: 3px;
+  color: #6b7787;
+  line-height: 1.35;
 }
 
 .gate-row strong {
@@ -376,7 +507,8 @@ label,
 }
 
 @media (max-width: 1100px) {
-  .workspace {
+  .workspace,
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 
@@ -402,7 +534,8 @@ label,
 
   .asset-summary,
   .candidate-grid,
-  .input-row {
+  .input-row,
+  dl div {
     grid-template-columns: 1fr;
   }
 }

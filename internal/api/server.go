@@ -42,6 +42,7 @@ func (s *Server) method(method string, next http.HandlerFunc) http.HandlerFunc {
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("/health", s.method(http.MethodGet, s.health))
+	s.mux.HandleFunc("/api/config/runtime", s.method(http.MethodGet, s.runtimeConfig))
 	s.mux.HandleFunc("/api/compliance/gates", s.method(http.MethodGet, s.gates))
 	s.mux.HandleFunc("/api/library_roots", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -69,6 +70,9 @@ func (s *Server) routes() {
 }
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "service": "reelwarden", "started_at": s.startedAt.Format(time.RFC3339)})
+}
+func (s *Server) runtimeConfig(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.cfg.RuntimeView())
 }
 func (s *Server) gates(w http.ResponseWriter, r *http.Request) {
 	result := compliance.EvaluateTMDBAI(compliance.RuntimeInputs{TMDBEnabled: s.cfg.Metadata.Providers.TMDB.Enabled, AIEnabled: s.cfg.AI.Enabled, TMDBAIStatus: s.cfg.Compliance.TMDBAI})

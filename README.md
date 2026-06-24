@@ -35,6 +35,39 @@ The local API listens on <http://127.0.0.1:8787>.
 make test
 ```
 
+## Configuration
+
+Keep non-secret defaults in `config.yaml`. Put credentials in environment variables or a local `.env` file that is not committed:
+
+```bash
+cp .env.example .env
+```
+
+`make dev` and `make test` load `.env` automatically when it exists.
+
+AI settings:
+
+```bash
+REELWARDEN_AI_ENABLED=false
+REELWARDEN_AI_BASE_URL=http://localhost:11434/v1
+REELWARDEN_AI_API_KEY=
+REELWARDEN_AI_MODEL=qwen3
+```
+
+TMDB settings:
+
+```bash
+REELWARDEN_TMDB_ENABLED=false
+REELWARDEN_TMDB_TOKEN=
+REELWARDEN_TMDB_API_KEY=
+REELWARDEN_TMDB_LANGUAGE=zh-CN
+REELWARDEN_TMDB_REGION=CN
+```
+
+The runtime config endpoint returns only redacted configuration status. It never returns API keys or tokens.
+
+TMDB and AI remain mutually blocked unless `COMPLIANCE-TMDB-AI` is accepted by the project authority process.
+
 ## MVP API walkthrough
 
 ```bash

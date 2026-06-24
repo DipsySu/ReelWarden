@@ -27,13 +27,53 @@ type MetadataConfig struct {
 	DefaultProvider string
 	Providers       ProviderConfigs
 }
-type ProviderConfigs struct{ Mock, LocalNFO, TMDB ProviderToggle }
+type ProviderConfigs struct {
+	Mock     ProviderToggle
+	LocalNFO ProviderToggle
+	TMDB     TMDBConfig
+}
 type ProviderToggle struct{ Enabled bool }
-type AIConfig struct{ Enabled bool }
+type TMDBConfig struct {
+	Enabled              bool
+	AuthType             string
+	APIKey               string
+	Token                string
+	Language             string
+	FallbackLanguage     string
+	Region               string
+	OfficialEndpointOnly bool
+	APIBaseURL           string
+	ProxyURL             string
+	TimeoutSeconds       int
+	MaxRetries           int
+}
+type AIConfig struct {
+	Enabled        bool
+	Provider       string
+	BaseURL        string
+	APIKey         string
+	Model          string
+	Protocol       string
+	TimeoutSeconds int
+	MaxRetries     int
+	Capabilities   AICapabilitiesConfig
+	Privacy        AIPrivacyConfig
+}
+type AICapabilitiesConfig struct {
+	Streaming        string `json:"streaming"`
+	ToolCalling      string `json:"tool_calling"`
+	StructuredOutput string `json:"structured_output"`
+}
+type AIPrivacyConfig struct {
+	Mode                string
+	SendAbsolutePaths   bool
+	SendProviderContent bool
+	SendNFOContent      bool
+}
 type ComplianceConfig struct{ TMDBAI string }
 
 func Default() Config {
-	return Config{Server: ServerConfig{Listen: "127.0.0.1:8787", DataDir: "./data", LogLevel: "info"}, Database: DatabaseConfig{Driver: "modernc-sqlite", Path: "./data/reelwarden.db", WAL: true, MaxOpenConns: 1, BackupDir: "./data/backups"}, Metadata: MetadataConfig{DefaultProvider: "mock", Providers: ProviderConfigs{Mock: ProviderToggle{Enabled: true}, LocalNFO: ProviderToggle{Enabled: true}}}, Compliance: ComplianceConfig{TMDBAI: "blocked"}}
+	return Config{Server: ServerConfig{Listen: "127.0.0.1:8787", DataDir: "./data", LogLevel: "info"}, Database: DatabaseConfig{Driver: "modernc-sqlite", Path: "./data/reelwarden.db", WAL: true, MaxOpenConns: 1, BackupDir: "./data/backups"}, Metadata: MetadataConfig{DefaultProvider: "mock", Providers: ProviderConfigs{Mock: ProviderToggle{Enabled: true}, LocalNFO: ProviderToggle{Enabled: true}, TMDB: TMDBConfig{AuthType: "bearer_token", Language: "zh-CN", FallbackLanguage: "en-US", Region: "CN", OfficialEndpointOnly: true, APIBaseURL: "https://api.themoviedb.org/3", TimeoutSeconds: 15, MaxRetries: 2}}}, AI: AIConfig{Provider: "openai-compatible", BaseURL: "http://localhost:11434/v1", Model: "qwen3", Protocol: "chat-completions", TimeoutSeconds: 120, MaxRetries: 2, Capabilities: AICapabilitiesConfig{Streaming: "auto", ToolCalling: "auto", StructuredOutput: "auto"}, Privacy: AIPrivacyConfig{Mode: "minimal"}}, Compliance: ComplianceConfig{TMDBAI: "blocked"}}
 }
 
 func Load(path string) (Config, error) {
@@ -124,8 +164,58 @@ func set(c *Config, p []string, v string) {
 		c.Metadata.Providers.LocalNFO.Enabled = parseBool(v)
 	case "metadata.providers.tmdb.enabled":
 		c.Metadata.Providers.TMDB.Enabled = parseBool(v)
+	case "metadata.providers.tmdb.auth_type":
+		c.Metadata.Providers.TMDB.AuthType = v
+	case "metadata.providers.tmdb.api_key":
+		c.Metadata.Providers.TMDB.APIKey = v
+	case "metadata.providers.tmdb.token":
+		c.Metadata.Providers.TMDB.Token = v
+	case "metadata.providers.tmdb.language":
+		c.Metadata.Providers.TMDB.Language = v
+	case "metadata.providers.tmdb.fallback_language":
+		c.Metadata.Providers.TMDB.FallbackLanguage = v
+	case "metadata.providers.tmdb.region":
+		c.Metadata.Providers.TMDB.Region = v
+	case "metadata.providers.tmdb.official_endpoint_only":
+		c.Metadata.Providers.TMDB.OfficialEndpointOnly = parseBool(v)
+	case "metadata.providers.tmdb.api_base_url":
+		c.Metadata.Providers.TMDB.APIBaseURL = v
+	case "metadata.providers.tmdb.proxy_url":
+		c.Metadata.Providers.TMDB.ProxyURL = v
+	case "metadata.providers.tmdb.timeout_seconds":
+		c.Metadata.Providers.TMDB.TimeoutSeconds = parseInt(v, c.Metadata.Providers.TMDB.TimeoutSeconds)
+	case "metadata.providers.tmdb.max_retries":
+		c.Metadata.Providers.TMDB.MaxRetries = parseInt(v, c.Metadata.Providers.TMDB.MaxRetries)
 	case "ai.enabled":
 		c.AI.Enabled = parseBool(v)
+	case "ai.provider":
+		c.AI.Provider = v
+	case "ai.base_url":
+		c.AI.BaseURL = strings.TrimRight(v, "/")
+	case "ai.api_key":
+		c.AI.APIKey = v
+	case "ai.model":
+		c.AI.Model = v
+	case "ai.protocol":
+		c.AI.Protocol = v
+	case "ai.timeout_seconds":
+		c.AI.TimeoutSeconds = parseInt(v, c.AI.TimeoutSeconds)
+	case "ai.max_retries":
+		c.AI.MaxRetries = parseInt(v, c.AI.MaxRetries)
+	case "ai.capabilities.streaming":
+		c.AI.Capabilities.Streaming = v
+	case "ai.capabilities.tool_calling":
+		c.AI.Capabilities.ToolCalling = v
+	case "ai.capabilities.structured_output":
+		c.AI.Capabilities.StructuredOutput = v
+	case "ai.privacy.mode":
+		c.AI.Privacy.Mode = v
+	case "ai.privacy.send_absolute_paths":
+		c.AI.Privacy.SendAbsolutePaths = parseBool(v)
+	case "ai.privacy.send_provider_content":
+		c.AI.Privacy.SendProviderContent = parseBool(v)
+	case "ai.privacy.send_nfo_content":
+		c.AI.Privacy.SendNFOContent = parseBool(v)
 	case "compliance.tmdb_ai":
 		c.Compliance.TMDBAI = v
 	}
@@ -145,14 +235,50 @@ func applyEnv(cfg *Config) {
 	if v := os.Getenv("REELWARDEN_DATA_DIR"); v != "" {
 		cfg.Server.DataDir = v
 	}
+	if v := os.Getenv("REELWARDEN_LOG_LEVEL"); v != "" {
+		cfg.Server.LogLevel = v
+	}
 	if v := os.Getenv("REELWARDEN_DATABASE_PATH"); v != "" {
 		cfg.Database.Path = v
 	}
 	if v := os.Getenv("REELWARDEN_AI_ENABLED"); v != "" {
 		cfg.AI.Enabled = parseBool(v)
 	}
+	if v := os.Getenv("REELWARDEN_AI_PROVIDER"); v != "" {
+		cfg.AI.Provider = v
+	}
+	if v := os.Getenv("REELWARDEN_AI_BASE_URL"); v != "" {
+		cfg.AI.BaseURL = strings.TrimRight(v, "/")
+	}
+	if v := os.Getenv("REELWARDEN_AI_API_KEY"); v != "" {
+		cfg.AI.APIKey = v
+	}
+	if v := os.Getenv("REELWARDEN_AI_MODEL"); v != "" {
+		cfg.AI.Model = v
+	}
+	if v := os.Getenv("REELWARDEN_AI_PROTOCOL"); v != "" {
+		cfg.AI.Protocol = v
+	}
 	if v := os.Getenv("REELWARDEN_TMDB_ENABLED"); v != "" {
 		cfg.Metadata.Providers.TMDB.Enabled = parseBool(v)
+	}
+	if v := os.Getenv("REELWARDEN_TMDB_AUTH_TYPE"); v != "" {
+		cfg.Metadata.Providers.TMDB.AuthType = v
+	}
+	if v := os.Getenv("REELWARDEN_TMDB_API_KEY"); v != "" {
+		cfg.Metadata.Providers.TMDB.APIKey = v
+	}
+	if v := os.Getenv("REELWARDEN_TMDB_TOKEN"); v != "" {
+		cfg.Metadata.Providers.TMDB.Token = v
+	}
+	if v := os.Getenv("REELWARDEN_TMDB_LANGUAGE"); v != "" {
+		cfg.Metadata.Providers.TMDB.Language = v
+	}
+	if v := os.Getenv("REELWARDEN_TMDB_REGION"); v != "" {
+		cfg.Metadata.Providers.TMDB.Region = v
+	}
+	if v := os.Getenv("REELWARDEN_TMDB_PROXY_URL"); v != "" {
+		cfg.Metadata.Providers.TMDB.ProxyURL = v
 	}
 }
 func (c Config) Validate() error {
@@ -170,6 +296,28 @@ func (c Config) Validate() error {
 	}
 	if c.Compliance.TMDBAI == "" {
 		return errors.New("CFG_COMPLIANCE_TMDB_AI_REQUIRED")
+	}
+	if c.AI.Enabled {
+		if c.AI.Provider == "" {
+			return errors.New("CFG_AI_PROVIDER_REQUIRED")
+		}
+		if c.AI.BaseURL == "" {
+			return errors.New("CFG_AI_BASE_URL_REQUIRED")
+		}
+		if c.AI.Model == "" {
+			return errors.New("CFG_AI_MODEL_REQUIRED")
+		}
+	}
+	if c.Metadata.Providers.TMDB.Enabled {
+		if c.Metadata.Providers.TMDB.AuthType == "" {
+			return errors.New("CFG_TMDB_AUTH_TYPE_REQUIRED")
+		}
+		if c.Metadata.Providers.TMDB.APIKey == "" && c.Metadata.Providers.TMDB.Token == "" {
+			return errors.New("CFG_TMDB_CREDENTIAL_REQUIRED")
+		}
+		if c.Metadata.Providers.TMDB.Language == "" {
+			return errors.New("CFG_TMDB_LANGUAGE_REQUIRED")
+		}
 	}
 	return nil
 }

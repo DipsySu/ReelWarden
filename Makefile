@@ -1,3 +1,8 @@
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
+
 .PHONY: dev server web test go-test web-build
 
 dev:

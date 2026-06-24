@@ -73,6 +73,66 @@ type ScanResult = {
   assets: MediaAsset[];
 };
 
+type RuntimeConfig = {
+  server: {
+    listen: string;
+    data_dir: string;
+    log_level: string;
+  };
+  database: {
+    driver: string;
+    path: string;
+    wal: boolean;
+    max_open_conns: number;
+    backup_dir: string;
+  };
+  metadata: {
+    default_provider: string;
+    providers: {
+      mock: { enabled: boolean };
+      local_nfo: { enabled: boolean };
+      tmdb: {
+        enabled: boolean;
+        auth_type: string;
+        api_key_configured: boolean;
+        token_configured: boolean;
+        language: string;
+        fallback_language: string;
+        region: string;
+        official_endpoint_only: boolean;
+        api_base_url: string;
+        proxy_configured: boolean;
+        timeout_seconds: number;
+        max_retries: number;
+      };
+    };
+  };
+  ai: {
+    enabled: boolean;
+    provider: string;
+    base_url: string;
+    api_key_configured: boolean;
+    model: string;
+    protocol: string;
+    timeout_seconds: number;
+    max_retries: number;
+    capabilities: {
+      streaming: string;
+      tool_calling: string;
+      structured_output: string;
+    };
+    privacy: {
+      mode: string;
+      send_absolute_paths: boolean;
+      send_provider_content: boolean;
+      send_nfo_content: boolean;
+    };
+  };
+  compliance: {
+    tmdb_ai: string;
+  };
+};
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -109,6 +169,7 @@ function formatBytes(size: number) {
 
 function App() {
   const [health, setHealth] = useState<Health | null>(null);
+  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig | null>(null);
   const [gates, setGates] = useState<GateResult[]>([]);
   const [roots, setRoots] = useState<LibraryRoot[]>([]);
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -125,21 +186,29 @@ function App() {
     () => assets.find((asset) => asset.id === activeAssetId) ?? assets[0],
     [activeAssetId, assets],
   );
+  const selectedRoot = useMemo(
+    () => roots.find((root) => root.id === selectedRootId),
+    [roots, selectedRootId],
+  );
   const activeCandidates = activeAsset ? candidates[activeAsset.id] ?? [] : [];
   const activePlans = activeAsset ? plans.filter((plan) => plan.asset_id === activeAsset.id) : plans;
+  const confirmedAssets = assets.filter((asset) => asset.match_state === 'confirmed').length;
+  const pendingAssets = assets.length - confirmedAssets;
 
   async function refresh() {
     setBusy('Refreshing');
     setError('');
     try {
-      const [nextHealth, nextGates, nextRoots, nextAssets, nextPlans] = await Promise.all([
+      const [nextHealth, nextRuntimeConfig, nextGates, nextRoots, nextAssets, nextPlans] = await Promise.all([
         api<Health>('/health'),
+        api<RuntimeConfig>('/api/config/runtime'),
         api<GateResult[]>('/api/compliance/gates'),
         api<LibraryRoot[]>('/api/library_roots'),
         api<MediaAsset[]>('/api/assets'),
         api<ActionPlan[]>('/api/plans'),
       ]);
       setHealth(nextHealth);
+      setRuntimeConfig(nextRuntimeConfig);
       setGates(nextGates);
       setRoots(nextRoots);
       setAssets(nextAssets);
@@ -148,6 +217,7 @@ function App() {
       setActiveAssetId((current) => current || nextAssets[0]?.id || '');
     } catch (err) {
       setHealth(null);
+      setRuntimeConfig(null);
       setError(err instanceof Error ? err.message : 'API request failed');
     } finally {
       setBusy('');
@@ -285,6 +355,32 @@ function App() {
       {error ? <p className="banner error">{error}</p> : null}
       {notice ? <p className="banner notice">{notice}</p> : null}
 
+      <section className="summary-grid" aria-label="Runtime summary">
+        <div className="summary-tile">
+          <span>Roots</span>
+          <strong>{roots.length}</strong>
+        </div>
+        <div className="summary-tile">
+          <span>Assets</span>
+          <strong>{assets.length}</strong>
+          <small>{pendingAssets} pending</small>
+        </div>
+        <div className="summary-tile">
+          <span>Plans</span>
+          <strong>{plans.length}</strong>
+        </div>
+        <div className="summary-tile">
+          <span>AI</span>
+          <strong>{runtimeConfig?.ai.enabled ? 'On' : 'Off'}</strong>
+          <small>{runtimeConfig?.ai.model ?? 'qwen3'}</small>
+        </div>
+        <div className="summary-tile">
+          <span>TMDB</span>
+          <strong>{runtimeConfig?.metadata.providers.tmdb.enabled ? 'On' : 'Off'}</strong>
+          <small>{runtimeConfig?.metadata.providers.tmdb.language ?? 'zh-CN'}</small>
+        </div>
+      </section>
+
       <section className="workspace">
         <aside className="panel">
           <div className="panel-heading">
@@ -320,8 +416,15 @@ function App() {
           </select>
 
           <button className="primary wide" type="button" onClick={() => void scanRoot()} disabled={Boolean(busy || !selectedRootId)}>
-            Scan root
+            {busy === 'Scanning' ? 'Scanning' : 'Scan root'}
           </button>
+
+          {selectedRoot ? (
+            <div className="root-chip">
+              <span>{selectedRoot.mode}</span>
+              <strong>{selectedRoot.path}</strong>
+            </div>
+          ) : null}
 
           <div className="asset-list">
             <div className="list-title">
@@ -335,6 +438,7 @@ function App() {
                 className={`asset-row ${activeAsset?.id === asset.id ? 'active' : ''}`}
                 type="button"
                 key={asset.id}
+                aria-pressed={activeAsset?.id === asset.id}
                 onClick={() => setActiveAssetId(asset.id)}
               >
                 <span>{asset.relative_path}</span>
@@ -391,7 +495,7 @@ function App() {
                       onClick={() => void confirmCandidate(candidate.id)}
                       disabled={Boolean(busy || activeAsset.confirmed_candidate_id === candidate.id)}
                     >
-                      {activeAsset.confirmed_candidate_id === candidate.id ? 'Confirmed' : 'Confirm'}
+                      {activeAsset.confirmed_candidate_id === candidate.id ? 'Confirmed' : 'Use candidate'}
                     </button>
                   </article>
                 ))}
@@ -434,10 +538,58 @@ function App() {
           </div>
 
           <div className="gate-list">
+            <h2>Runtime</h2>
+            {runtimeConfig ? (
+              <div className="runtime-stack">
+                <article className="runtime-card">
+                  <div className="runtime-head">
+                    <div>
+                      <span className="label compact">AI</span>
+                      <strong>{runtimeConfig.ai.provider}</strong>
+                    </div>
+                    <span className={`pill ${runtimeConfig.ai.enabled ? 'enabled' : ''}`}>
+                      {runtimeConfig.ai.enabled ? 'enabled' : 'disabled'}
+                    </span>
+                  </div>
+                  <dl>
+                    <div><dt>Base URL</dt><dd>{runtimeConfig.ai.base_url}</dd></div>
+                    <div><dt>Model</dt><dd>{runtimeConfig.ai.model}</dd></div>
+                    <div><dt>API key</dt><dd>{runtimeConfig.ai.api_key_configured ? 'configured' : 'missing'}</dd></div>
+                    <div><dt>Privacy</dt><dd>{runtimeConfig.ai.privacy.mode}</dd></div>
+                  </dl>
+                </article>
+
+                <article className="runtime-card">
+                  <div className="runtime-head">
+                    <div>
+                      <span className="label compact">TMDB</span>
+                      <strong>{runtimeConfig.metadata.providers.tmdb.auth_type}</strong>
+                    </div>
+                    <span className={`pill ${runtimeConfig.metadata.providers.tmdb.enabled ? 'enabled' : ''}`}>
+                      {runtimeConfig.metadata.providers.tmdb.enabled ? 'enabled' : 'disabled'}
+                    </span>
+                  </div>
+                  <dl>
+                    <div><dt>Locale</dt><dd>{runtimeConfig.metadata.providers.tmdb.language} / {runtimeConfig.metadata.providers.tmdb.region}</dd></div>
+                    <div><dt>Token</dt><dd>{runtimeConfig.metadata.providers.tmdb.token_configured ? 'configured' : 'missing'}</dd></div>
+                    <div><dt>API key</dt><dd>{runtimeConfig.metadata.providers.tmdb.api_key_configured ? 'configured' : 'missing'}</dd></div>
+                    <div><dt>Proxy</dt><dd>{runtimeConfig.metadata.providers.tmdb.proxy_configured ? 'configured' : 'off'}</dd></div>
+                  </dl>
+                </article>
+              </div>
+            ) : (
+              <p className="empty">Runtime config unavailable.</p>
+            )}
+          </div>
+
+          <div className="gate-list">
             <h2>Gates</h2>
             {gates.map((gate) => (
               <div className="gate-row" key={gate.gate_id}>
-                <span>{gate.gate_id}</span>
+                <div>
+                  <span>{gate.gate_id}</span>
+                  <small>{gate.reason}</small>
+                </div>
                 <strong>{gate.allowed ? 'allowed' : gate.status}</strong>
               </div>
             ))}
