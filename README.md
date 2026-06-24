@@ -15,16 +15,25 @@ This repository now contains a minimal v0.1.1 MVP slice for the read-only movie 
 - manual candidate confirmation
 - Jellyfin-style naming preview
 - immutable Dry Run Action Plan generation
-- React/Vite web shell
+- React/Vite web console for the full read-only loop
 
 ## Quick start
 
 ```bash
 cp config.example.yaml config.yaml
+npm install
 make dev
 ```
 
-Open <http://127.0.0.1:8787>.
+Open the web console at <http://127.0.0.1:5173>.
+
+The local API listens on <http://127.0.0.1:8787>.
+
+## Verification
+
+```bash
+make test
+```
 
 ## MVP API walkthrough
 
