@@ -1,0 +1,51 @@
+server:
+  listen: 127.0.0.1:8787
+  data_dir: ./data
+  log_level: info
+
+database:
+  driver: modernc-sqlite
+  path: ./data/reelwarden.db
+  wal: true
+  max_open_conns: 1
+  backup_dir: ./data/backups
+
+metadata:
+  default_provider: mock
+  providers:
+    mock:
+      enabled: true
+    local_nfo:
+      enabled: true
+    tmdb:
+      enabled: false
+      auth_type: bearer_token
+      language: zh-CN
+      fallback_language: en-US
+      region: CN
+      official_endpoint_only: true
+      api_base_url: https://api.themoviedb.org/3
+      proxy_url: ""
+      timeout_seconds: 15
+      max_retries: 2
+
+ai:
+  enabled: false
+  provider: openai-compatible
+  base_url: http://localhost:11434/v1
+  model: qwen3
+  protocol: chat-completions
+  timeout_seconds: 120
+  max_retries: 2
+  capabilities:
+    streaming: auto
+    tool_calling: auto
+    structured_output: auto
+  privacy:
+    mode: minimal
+    send_absolute_paths: false
+    send_provider_content: false
+    send_nfo_content: false
+
+compliance:
+  tmdb_ai: blocked

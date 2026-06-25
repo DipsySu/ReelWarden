@@ -1,0 +1,23 @@
+# HELD-OUT split (§12.6). DO NOT read or use these entries when tuning parser rules.
+# Reported by the harness for visibility only; failures here do not gate the build.
+# Kept physically separate from development/ precisely so it is easy to keep out of
+# rule-tuning review. Mix of en / zh (simp+trad) / ja / ko, editions, numeric titles.
+{"filename": "Parasite.2019.1080p.BluRay.x264-SPARKS.mkv", "title": "Parasite", "year": 2019, "edition": "", "note": "ascii + group"}
+{"filename": "Interstellar.2014.IMAX.2160p.UHD.BluRay.x265.mkv", "title": "Interstellar", "year": 2014, "edition": "", "note": "ascii, uhd tags"}
+{"filename": "Blade.II.2002.1080p.BluRay.mkv", "title": "Blade II", "year": 2002, "edition": "", "note": "roman numeral sequel"}
+{"filename": "Tron.Legacy.2010.1080p.BluRay.mkv", "title": "Tron Legacy", "year": 2010, "edition": "", "note": "two-word ascii"}
+{"filename": "Catch.Me.If.You.Can.2002.1080p.BluRay.mkv", "title": "Catch Me If You Can", "year": 2002, "edition": "", "note": "long dot-separated title"}
+{"filename": "9.2009.1080p.BluRay.mkv", "title": "9", "year": 2009, "edition": "", "note": "single-digit numeric title; 2009 is the year"}
+{"filename": "1408.2007.1080p.BluRay.mkv", "title": "1408", "year": 2007, "edition": "", "note": "numeric title that is not a plausible year; 2007 is the year"}
+{"filename": "Spirited.Away.2001.1080p.BluRay.x264.mkv", "title": "Spirited Away", "year": 2001, "edition": "", "note": "ascii"}
+{"filename": "It.2017.1080p.BluRay.x264-GROUP.mkv", "title": "It", "year": 2017, "edition": "", "note": "very short ascii title"}
+{"filename": "Up.2009.1080p.BluRay.mkv", "title": "Up", "year": 2009, "edition": "", "note": "very short ascii title"}
+{"filename": "Coco.2017.1080p.BluRay.x264.mkv", "title": "Coco", "year": 2017, "edition": "", "note": "ascii"}
+{"filename": "V.2009.mkv", "title": "V", "year": 2009, "edition": "", "note": "single-letter title not romanized to 5"}
+{"filename": "The.Thing.1982.Theatrical.Cut.1080p.BluRay.mkv", "title": "The Thing", "year": 1982, "edition": "Theatrical Cut", "note": "edition kept out of title"}
+{"filename": "千与千寻.2001.BluRay.1080p.mkv", "title": "千与千寻", "year": 2001, "edition": "", "note": "simplified zh"}
+{"filename": "英雄.2002.1080p.BluRay.x264.mkv", "title": "英雄", "year": 2002, "edition": "", "note": "simplified zh"}
+{"filename": "鬼子来了.2000.BluRay.mkv", "title": "鬼子来了", "year": 2000, "edition": "", "note": "simplified zh"}
+{"filename": "花樣年華.2000.BluRay.1080p.mkv", "title": "花樣年華", "year": 2000, "edition": "", "note": "traditional zh"}
+{"filename": "천국의 아이들.1997.mkv", "title": "천국의 아이들", "year": 1997, "edition": "", "note": "korean with internal space preserved"}
+{"filename": "アキラ.1988.1080p.BluRay.mkv", "title": "アキラ", "year": 1988, "edition": "", "note": "japanese katakana"}

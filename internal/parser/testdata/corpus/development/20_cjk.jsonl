@@ -1,0 +1,21 @@
+# CJK file names: simplified, traditional, Japanese, Korean. Titles are preserved
+# verbatim (no translation, no simp/trad overwrite, §12.3).
+{"filename": "沙丘.2021.2160p.WEB-DL.x265-NoGroup.mkv", "title": "沙丘", "year": 2021, "edition": "", "note": "simplified zh + group"}
+{"filename": "無間道.2002.BluRay.mkv", "title": "無間道", "year": 2002, "edition": "", "note": "traditional zh (fold key 无间道 generated separately)"}
+{"filename": "让子弹飞.2010.1080p.BluRay.x264.mkv", "title": "让子弹飞", "year": 2010, "edition": "", "note": "simplified zh"}
+{"filename": "霸王别姬.1993.BluRay.1080p.mkv", "title": "霸王别姬", "year": 1993, "edition": "", "note": "simplified zh, tags after year"}
+{"filename": "卧虎藏龙.2000.720p.BluRay.mkv", "title": "卧虎藏龙", "year": 2000, "edition": "", "note": "simplified zh"}
+{"filename": "大話西遊.1995.BluRay.mkv", "title": "大話西遊", "year": 1995, "edition": "", "note": "traditional zh"}
+{"filename": "老男孩.2003.1080p.mkv", "title": "老男孩", "year": 2003, "edition": "", "note": "simplified zh"}
+{"filename": "少年的你.2019.1080p.WEB-DL.mkv", "title": "少年的你", "year": 2019, "edition": "", "note": "simplified zh + web-dl"}
+{"filename": "流浪地球.2019.2160p.BluRay.x265.mkv", "title": "流浪地球", "year": 2019, "edition": "", "note": "simplified zh, uhd"}
+{"filename": "哪吒之魔童降世.2019.1080p.BluRay.mkv", "title": "哪吒之魔童降世", "year": 2019, "edition": "", "note": "simplified zh, longer title"}
+{"filename": "低zhi商犯罪.2023.mkv", "title": "低zhi商犯罪", "year": 2023, "edition": "", "note": "garbled mixed CJK+latin preserved verbatim"}
+{"filename": "千と千尋の神隠し.2001.BluRay.mkv", "title": "千と千尋の神隠し", "year": 2001, "edition": "", "note": "japanese, kana + kanji"}
+{"filename": "君の名は.2016.1080p.mkv", "title": "君の名は", "year": 2016, "edition": "", "note": "japanese"}
+{"filename": "パラサイト 半地下の家族.2019.mkv", "title": "パラサイト 半地下の家族", "year": 2019, "edition": "", "note": "japanese with internal space preserved"}
+{"filename": "七人の侍.1954.1080p.BluRay.mkv", "title": "七人の侍", "year": 1954, "edition": "", "note": "japanese, kanji + leading digit-word 七 (not a year)"}
+{"filename": "風の谷のナウシカ.1984.1080p.BluRay.mkv", "title": "風の谷のナウシカ", "year": 1984, "edition": "", "note": "japanese, kana"}
+{"filename": "기생충.2019.1080p.BluRay.mkv", "title": "기생충", "year": 2019, "edition": "", "note": "korean hangul"}
+{"filename": "올드보이.2003.1080p.BluRay.mkv", "title": "올드보이", "year": 2003, "edition": "", "note": "korean hangul"}
+{"filename": "[NekoSub] 沙丘 (2021).mkv", "title": "沙丘", "year": 2021, "edition": "", "note": "fansub bracket group + parenthesized year"}
