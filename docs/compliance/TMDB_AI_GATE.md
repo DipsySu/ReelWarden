@@ -11,12 +11,11 @@ permitted/forbidden data flows for the gate.
 ## 1. Terms version / date
 
 - Source: TMDB API Terms of Use — `https://www.themoviedb.org/api-terms-of-use`.
-- Reviewed: 2026-06-24.
-- **Verification status: PRELIMINARY.** The clause wording below was obtained via web
-  search (two independent queries that agreed). The primary terms page could not be
-  fetched directly (TLS/certificate error) and the Wayback copy was unreachable.
-  **The exact current wording, section numbers, and effective date MUST be confirmed
-  against the live page before any legal decision (e.g. unlocking the gate).**
+- Reviewed: 2026-06-24 (web search). Confirmed against the live terms by the project owner: 2026-06-25.
+- **Verification status: CONFIRMED.** The project owner read the live TMDB API Terms of
+  Use and confirmed that AI/ML use of TMDB content is prohibited (see §2). The clause
+  wording below is reproduced from the web-search review; if the owner captured the exact
+  section numbers / effective date, append them here for a complete record.
 
 ## 2. Risk summary
 
@@ -49,7 +48,7 @@ None.
 ## 5. Decision
 
 `COMPLIANCE-TMDB-AI` = `blocked` by default (unchanged). The gate is now backed by
-documented (preliminary) terms findings rather than "pending review". No product
+confirmed terms findings (project owner, 2026-06-25) rather than "pending review". No product
 capability sends TMDB content to AI. The AI assistant is restricted to local-only data
 (see §6). Re-evaluate only via authority §7.3 unlock paths: #1 written permission,
 #2 formal legal review, #3 a provider whose terms allow the combination, #4 remove the

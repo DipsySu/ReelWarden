@@ -50,7 +50,7 @@
 
 以下为 v0.1.1 冻结后，基于第三方条款核查与解析链设计讨论的原地追加修订。版本号与文件名保持不变；如需正式新基线再行升 v0.1.2。本节不削弱 §0.2 与 §7.3 的任何护栏，仅作澄清与增补。
 
-15. TMDB API 条款已确认存在明确的 AI/ML 使用限制（覆盖 LLM/AI/ML/chatbot 与 "interactive query-response system"，以及训练、数据集收集）。该限制为用途类约束，不以商业性为前提，"非商业 / 开源 / BYOK / 自用" 均不构成豁免。`COMPLIANCE-TMDB-AI` Gate 由此从"待审"升级为"有条款依据"；默认状态仍为 `blocked`，逻辑不变。条款发现记录于 `docs/compliance/TMDB_AI_GATE.md`，当前为网络来源、待一手核对。
+15. TMDB API 条款已确认存在明确的 AI/ML 使用限制（覆盖 LLM/AI/ML/chatbot 与 "interactive query-response system"，以及训练、数据集收集）。该限制为用途类约束，不以商业性为前提，"非商业 / 开源 / BYOK / 自用" 均不构成豁免。`COMPLIANCE-TMDB-AI` Gate 由此从"待审"升级为"有条款依据"；默认状态仍为 `blocked`，逻辑不变。条款发现记录于 `docs/compliance/TMDB_AI_GATE.md`；已于 2026-06-25 经项目所有者对照线上条款核对确认。
 16. 明确区分两类 AI 使用：① AI 在 Provider 调用「之前」、仅基于本地不可信数据（文件名、父目录、本地 NFO 的非 Provider 字段）做标题归一化与媒体类型假设——属允许范围；② AI 接触 Provider 返回内容（含 TMDB 派生字段）——仍受 Gate 阻止。AI 只产出供确定性代码使用的假设，不调用 Provider，也不决定最终匹配。
 17. 匹配采用按文件「置信度路由的逐级升级阶梯」（R0–R5），整合 §12.6 与 §14，并新增"本地 AI 文件名修复"级（仅本地输入）。详见 §14.9 与 `docs/design/resolver-pipeline.md`。
 18. §7.2 AgentView 扩展：新增 `parent_dir_name` 与相对目录上下文，作为本地不可信数据按 §7.4 处理；Provider 字段与绝对路径仍然禁止。
