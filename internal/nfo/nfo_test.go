@@ -143,6 +143,42 @@ func TestDiscoverSingleNfo(t *testing.T) {
 	}
 }
 
+// TestDiscoverSingleNfoGlobMetaDir reproduces the bug where glob
+// metacharacters in the directory name (e.g. "[NekoSub] Dune (2021)") were
+// interpreted as a pattern by filepath.Glob, so the single-*.nfo fallback
+// silently failed and Discover returned ok=false.
+func TestDiscoverSingleNfoGlobMetaDir(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "[NekoSub] Dune (2021)")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	media := filepath.Join(dir, "Dune.mkv")
+	nfoPath := filepath.Join(dir, "metadata.nfo")
+	mustWrite(t, media, "x")
+	mustWrite(t, nfoPath, "<movie/>")
+
+	got, ok := Discover(media)
+	if !ok || got != nfoPath {
+		t.Fatalf("Discover = %q,%v want %q,true", got, ok, nfoPath)
+	}
+}
+
+// TestDiscoverCaseInsensitiveNfo verifies the single-*.nfo fallback matches the
+// ".nfo" suffix case-insensitively.
+func TestDiscoverCaseInsensitiveNfo(t *testing.T) {
+	dir := t.TempDir()
+	media := filepath.Join(dir, "video.mkv")
+	nfoPath := filepath.Join(dir, "whatever.NFO")
+	mustWrite(t, media, "x")
+	mustWrite(t, nfoPath, "<movie/>")
+
+	got, ok := Discover(media)
+	if !ok || got != nfoPath {
+		t.Fatalf("Discover = %q,%v want %q,true", got, ok, nfoPath)
+	}
+}
+
 func TestDiscoverNoneWhenAmbiguous(t *testing.T) {
 	dir := t.TempDir()
 	media := filepath.Join(dir, "video.mkv")

@@ -84,6 +84,38 @@ func TestExtractEdition(t *testing.T) {
 	}
 }
 
+// TestExtractEditionDCAbbrev guards the bare "dc" Director's-Cut abbreviation
+// boundary: a LEADING "DC" token is a title word and must NOT be consumed as an
+// edition (regression for "DC League of Super-Pets" -> edition "Director's Cut",
+// title "League of Super-Pets"); a "dc" that follows real title text is still a
+// recognized Director's Cut.
+func TestExtractEditionDCAbbrev(t *testing.T) {
+	tests := []struct {
+		name     string
+		in       string
+		wantEd   string
+		wantRest string
+	}{
+		// Leading "DC" stays in the title; no edition.
+		{"leading DC is a title word", "DC League of Super Pets 2022", "", "DC League of Super Pets 2022"},
+		// Trailing "dc" abbreviation in a real edition context is Director's Cut.
+		{"trailing dc abbreviation", "Movie Title 2009 DC", "Director's Cut", "Movie Title 2009"},
+		{"mid dc abbreviation", "Some Film DC 2009", "Director's Cut", "Some Film 2009"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ed, rest := extractEdition(tt.in)
+			rest = collapseSpaces(rest)
+			if ed != tt.wantEd {
+				t.Errorf("edition = %q, want %q", ed, tt.wantEd)
+			}
+			if rest != tt.wantRest {
+				t.Errorf("rest = %q, want %q", rest, tt.wantRest)
+			}
+		})
+	}
+}
+
 func TestExtractReleaseGroup(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -98,6 +130,18 @@ func TestExtractReleaseGroup(t *testing.T) {
 		{"trailing year is not a group", "Movie-2021", "", "Movie-2021"},
 		{"trailing tech tag is not a group", "Movie-x265", "", "Movie-x265"},
 		{"single char not a group", "Movie-A", "", "Movie-A"},
+		// Hyphenated titles with NO release markers: the trailing hyphen segment is
+		// the second half of the title, not a scene group (regression for
+		// "Spider-Man" -> "Spider"/group "Man").
+		{"hyphenated title spider-man", "Spider-Man", "", "Spider-Man"},
+		{"hyphenated title x-men", "X-Men", "", "X-Men"},
+		{"hyphenated title mission-impossible", "Mission-Impossible", "", "Mission-Impossible"},
+		// A hyphen group is still extracted when the prefix carries release markers.
+		{"hyphen group after year", "Spider-Man.2021-RARBG", "RARBG", "Spider-Man.2021"},
+		// Leading "[YEAR]" is a year, not a group (regression for "[2021] Title" ->
+		// group "2021"); the year pass then picks it up.
+		{"leading bracket year is not a group", "[2021] The Northman", "", "[2021] The Northman"},
+		{"leading bracket single char not a group", "[A] Title", "", "[A] Title"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

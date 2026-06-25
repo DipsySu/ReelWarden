@@ -19,6 +19,15 @@ func TestHint(t *testing.T) {
 		{"special sp standalone", "Show.SP.01.mkv", "", HintSpecial},
 		{"sp not standalone stays none", "Crispy.2020.mkv", "", HintNone},
 		{"tv drama", "Some.Show.Drama.S01.mkv", "", HintTV},
+		// Regression: "season"/"series" must be token-bounded and only count in
+		// the constrained "<marker> <number>" trailing form. Unbounded
+		// strings.Contains fired on substrings inside ordinary title words
+		// ("Seasoning") and on title-leading words ("Series 7 The Contenders").
+		{"season substring in seasoning is not tv", "The Seasoning House", "", HintNone},
+		{"series leading a film title is not tv", "Series 7 The Contenders", "", HintNone},
+		{"season number is tv", "Some.Show.Season.1", "", HintTV},
+		{"series number is tv", "Some Show Series 3", "", HintTV},
+		{"sxx standalone is tv", "Some.Show.S01.E02.mkv", "", HintTV},
 		{"tv cjk dianshiban", "进击的巨人 电视版.mkv", "", HintTV},
 		{"tv liveaction cjk", "进击的巨人 真人版 电视剧.mkv", "进击的巨人 真人版", HintTVLiveAction},
 		{"tv liveaction english", "Attack.on.Titan.Live.Action.Drama.mkv", "", HintTVLiveAction},

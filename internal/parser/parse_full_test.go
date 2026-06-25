@@ -113,6 +113,52 @@ func TestParse(t *testing.T) {
 			wantNorm: "低zhi商犯罪",
 			wantYear: 2023,
 		},
+		{
+			// Regression: leading "DC" is a title word, not a Director's Cut edition.
+			name:        "leading DC stays in title, no edition",
+			rel:         "DC.League.of.Super-Pets.2022.1080p.BluRay.x264.mkv",
+			wantRaw:     "DC League of Super-Pets",
+			wantNorm:    "dc league of super-pets",
+			wantYear:    2022,
+			wantEd:      "", // must NOT be "Director's Cut"
+			wantTagsSub: []string{"1080p", "BluRay", "x264"},
+		},
+		{
+			// Regression: a hyphenated title with no release markers must not have its
+			// second half stripped as a release group.
+			name:    "hyphenated title not split into group",
+			rel:     "Spider-Man.mkv",
+			wantRaw: "Spider-Man", wantNorm: "spider-man",
+			wantYear: 0, wantGroup: "",
+		},
+		{
+			name:    "hyphenated title x-men not split",
+			rel:     "X-Men.mkv",
+			wantRaw: "X-Men", wantNorm: "x-men",
+			wantYear: 0, wantGroup: "",
+		},
+		{
+			// Regression: leading "[2021]" is a year, not a release group; the year
+			// pass must recover it and leave no bogus ReleaseGroup.
+			name:    "leading bracket year recovered, no group",
+			rel:     "[2021] The Northman.mkv",
+			wantRaw: "The Northman", wantNorm: "the northman",
+			wantYear: 2021, wantGroup: "",
+		},
+		{
+			// Regression: "V for Vendetta" must not become "5 for vendetta".
+			name:    "single-letter V not romanized",
+			rel:     "V.for.Vendetta.2005.1080p.BluRay.mkv",
+			wantRaw: "V for Vendetta", wantNorm: "v for vendetta",
+			wantYear: 2005, wantTagsSub: []string{"1080p", "BluRay"},
+		},
+		{
+			// Regression: trailing single-letter X must not become "malcolm 10".
+			name:    "single-letter X not romanized",
+			rel:     "Malcolm.X.1992.mkv",
+			wantRaw: "Malcolm X", wantNorm: "malcolm x",
+			wantYear: 1992,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -143,6 +189,28 @@ func TestParse(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestParseFullwidthDigitNotFoldedIntoTitle guards §12.1/§12.3: the year pass must
+// detect a fullwidth year on a folded COPY but slice the returned title region from
+// the ORIGINAL string, so a fullwidth digit that is part of the TITLE (not the
+// year) survives verbatim in RawTitle. Regression for "赌侠２.1991" previously
+// returning RawTitle "赌侠2" (fullwidth ２ folded to ASCII 2).
+func TestParseFullwidthDigitNotFoldedIntoTitle(t *testing.T) {
+	id := Parse("赌侠２.1991.BluRay.mkv", "")
+	const wantRaw = "赌侠２" // fullwidth ２ (U+FF12) preserved
+	if id.RawTitle != wantRaw {
+		t.Fatalf("RawTitle = %q, want %q (fullwidth digit must not be folded into the display title)", id.RawTitle, wantRaw)
+	}
+	if id.Year != 1991 {
+		t.Fatalf("Year = %d, want 1991", id.Year)
+	}
+	// Explicit byte-level guard: the ASCII '2' must not appear in the raw title.
+	for _, r := range id.RawTitle {
+		if r == '2' {
+			t.Fatalf("RawTitle %q leaked an ASCII '2'; fullwidth digit was folded", id.RawTitle)
+		}
 	}
 }
 

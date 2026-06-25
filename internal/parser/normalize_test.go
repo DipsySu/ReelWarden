@@ -118,10 +118,36 @@ func TestRomanizeNumerals(t *testing.T) {
 		"i robot":       "i robot", // bare I is not converted (ambiguous)
 		"no romans":     "no romans",
 		"xii monkeys":   "12 monkeys",
+		// Bare single-letter V and X collide with real one-letter title tokens, so
+		// like "I" they are never folded (regression for "V for Vendetta" and
+		// "Malcolm X"); multi-letter numerals are unaffected.
+		"v for vendetta": "v for vendetta",
+		"malcolm x":      "malcolm x",
+		"x":              "x",
+		"v":              "v",
+		"rambo iv":       "rambo 4", // IV still folds
+		"part ix":        "part 9", // IX still folds
 	}
 	for in, want := range tests {
 		if got := romanizeNumerals(in); got != want {
 			t.Errorf("romanizeNumerals(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestNormalizeTitleSingleLetterNumerals guards the public NormalizeTitle contract
+// against the bare single-letter roman-numeral corruption: "V for Vendetta",
+// "Malcolm X" and "X" must keep their letter, while "Rocky II" still folds to "2".
+func TestNormalizeTitleSingleLetterNumerals(t *testing.T) {
+	cases := map[string]string{
+		"V for Vendetta": "v for vendetta",
+		"Malcolm X":      "malcolm x",
+		"X":              "x",
+		"Rocky II":       "rocky 2",
+	}
+	for in, want := range cases {
+		if got, _ := NormalizeTitle(in); got != want {
+			t.Errorf("NormalizeTitle(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

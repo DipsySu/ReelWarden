@@ -24,6 +24,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/reelwarden/reelwarden/internal/parser"
 	"github.com/reelwarden/reelwarden/internal/store"
 )
 
@@ -163,11 +164,17 @@ type Evidence struct {
 type ScoreResult struct {
 	Provider       string
 	ProviderItemID string
-	RankScore      float64
-	ScoreBand      store.ScoreBand
-	Rank           int
-	Evidence       Evidence
-	HardFiltered   bool // failed a hard constraint and was demoted to the floor (§14.3)
+	// Title / Year carry the candidate's display title and year through the score
+	// so the bridge can populate store.Candidate.{Title,Year}. They are descriptive
+	// passthroughs of ProviderCandidate.{Title,Year}; they take no part in scoring
+	// (the scorer compares against the normalized forms, not these raw fields).
+	Title        string
+	Year         int
+	RankScore    float64
+	ScoreBand    store.ScoreBand
+	Rank         int
+	Evidence     Evidence
+	HardFiltered bool // failed a hard constraint and was demoted to the floor (§14.3)
 }
 
 // ScoreCandidate scores a single provider candidate against the local identity,
@@ -176,6 +183,8 @@ func ScoreCandidate(local Local, c ProviderCandidate) ScoreResult {
 	res := ScoreResult{
 		Provider:       c.Provider,
 		ProviderItemID: c.ProviderItemID,
+		Title:          c.Title, // carried through so the bridge can populate store.Candidate.Title
+		Year:           c.Year,  // carried through so the bridge can populate store.Candidate.Year
 		Evidence:       Evidence{Groups: []EvidenceGroup{}, Penalties: []Penalty{}, Warnings: []string{}},
 	}
 
@@ -291,7 +300,18 @@ func externalIDConflict(localIDs, candIDs map[string]string) bool {
 // matches the candidate (§14.2). Conflicts are handled as a hard constraint, so
 // here we only ever produce a positive match.
 func externalIDGroup(local Local, c ProviderCandidate) (EvidenceGroup, bool) {
-	for ns, lv := range local.ExternalIDs {
+	// Iterate namespaces in a stable sorted order: when more than one local id
+	// matches the candidate, Go's randomized map iteration would otherwise pick an
+	// arbitrary namespace for the emitted evidence detail, so the persisted evidence
+	// varied across runs. The selected contribution is identical for every match
+	// (wExternalID), so only the detail string differs -- pin it deterministically.
+	namespaces := make([]string, 0, len(local.ExternalIDs))
+	for ns := range local.ExternalIDs {
+		namespaces = append(namespaces, ns)
+	}
+	sort.Strings(namespaces)
+	for _, ns := range namespaces {
+		lv := local.ExternalIDs[ns]
 		if lv == "" {
 			continue
 		}
@@ -545,37 +565,20 @@ func titleCoreDisjoint(id store.ParsedIdentity, c ProviderCandidate) bool {
 
 // --- normalization & similarity helpers (§12.3 comparison-only normalization) ---
 
-// normalizeTitle applies the comparison-only normalization used for scoring:
-// Unicode case fold, fullwidth->halfwidth, separator/punctuation flattening,
-// whitespace collapse. It must never be used as a display title (§12.3).
+// normalizeTitle applies the comparison-only normalization used for scoring. It
+// delegates to parser.NormalizeTitle (the §12.3 chain) so the provider side and the
+// local id.NormalizedTitle are folded by the SAME normalizer: previously this
+// package re-implemented a subset (no roman numerals, no CJK punctuation unification,
+// no simp/trad fold), so "Rocky II" vs "Rocky 2" or fullwidth/zh-punctuated variants
+// diverged from the parser-produced NormalizedTitle and exact-title recall broke.
+// The result is for comparison only and must never be shown as a display title.
+//
+// Only the normalized value is taken here; the parser's extra ComparisonKeys
+// (simp/trad fold, spaceless CJK key) are surfaced by the parser into
+// id.ComparisonKeys and scored separately in titleGroup.
 func normalizeTitle(s string) string {
-	if s == "" {
-		return ""
-	}
-	var b strings.Builder
-	for _, r := range s {
-		r = foldWidth(r)
-		switch {
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			b.WriteRune(unicode.ToLower(r))
-		case unicode.Is(unicode.Han, r) || unicode.Is(unicode.Hiragana, r) || unicode.Is(unicode.Katakana, r) || unicode.Is(unicode.Hangul, r):
-			b.WriteRune(r)
-		default:
-			b.WriteRune(' ')
-		}
-	}
-	return strings.Join(strings.Fields(b.String()), " ")
-}
-
-// foldWidth maps fullwidth ASCII variants to their halfwidth equivalents (§12.3).
-func foldWidth(r rune) rune {
-	if r >= 0xFF01 && r <= 0xFF5E {
-		return r - 0xFEE0
-	}
-	if r == 0x3000 { // ideographic space
-		return ' '
-	}
-	return r
+	n, _ := parser.NormalizeTitle(s)
+	return n
 }
 
 // tokenSet splits a normalized title into a set of tokens. CJK runs are also split

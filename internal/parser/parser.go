@@ -129,10 +129,15 @@ func separatorsToSpaces(s string) string {
 // Year detection is width-aware: fullwidth digits (２０２１) are recognized while the
 // surrounding title text keeps its original characters (§12.1).
 func extractYear(work string) (year int, titleRegion string) {
-	folded := foldDigitsToASCII(work) // same byte layout as work (1:1 rune folding kept index-safe below)
+	// Detect the year on a folded COPY (fullwidth digits -> ASCII) but slice the
+	// returned title region from the ORIGINAL string, so width folding never leaks
+	// into the preserved display RawTitle (§12.1/§12.3). foldMap[i] maps a byte
+	// offset in `folded` back to the corresponding byte offset in `work`; it has one
+	// entry per byte of `folded` plus a final entry == len(work).
+	folded, foldMap := foldDigitsWithMap(work)
 	type cand struct {
 		val        int
-		start, end int
+		start, end int // byte offsets into `folded`
 	}
 	var cands []cand
 	for _, loc := range fourDigitRE.FindAllStringIndex(folded, -1) {
@@ -148,27 +153,35 @@ func extractYear(work string) (year int, titleRegion string) {
 	if len(cands) == 0 {
 		return 0, work
 	}
-	work = folded // strip from the folded copy; ASCII year tokens never carry title meaning
 	// Prefer the last standalone year token (years usually trail the title), but
 	// only when removing it still leaves a non-empty title. If stripping it would
 	// empty the title, the number probably *is* the title (e.g. "2012", "1917").
+	// The slice bounds are translated back to the ORIGINAL string via foldMap so the
+	// remainder keeps its original (possibly fullwidth) characters.
 	for i := len(cands) - 1; i >= 0; i-- {
 		c := cands[i]
-		remainder := strings.TrimSpace(work[:c.start] + " " + work[c.end:])
+		oStart, oEnd := foldMap[c.start], foldMap[c.end]
+		remainder := strings.TrimSpace(work[:oStart] + " " + work[oEnd:])
 		if remainder != "" {
 			return c.val, remainder
 		}
 	}
 	// Every candidate is the whole title (numeric-only title): keep it as title,
-	// emit no year (do not fabricate; §12.6).
+	// emit no year (do not fabricate; §12.6). Return the original, unfolded title.
 	return 0, work
 }
 
-// foldDigitsToASCII maps fullwidth digits (U+FF10..U+FF19) to ASCII so year
+// foldDigitsWithMap maps fullwidth digits (U+FF10..U+FF19) to ASCII so year
 // detection sees them, leaving every other rune (including fullwidth letters)
-// untouched. Used only for the year pass; the display title region keeps its
-// original letters.
-func foldDigitsToASCII(s string) string {
+// untouched. It also returns foldMap, an offset translation table: foldMap[i] is
+// the byte offset in the ORIGINAL string s that corresponds to byte offset i in
+// the folded result. It has len(folded)+1 entries (the final one == len(s)), so
+// any [start,end] span found in the folded string can be sliced back out of s.
+//
+// Fullwidth digits are 3 bytes (e.g. U+FF12 -> EF BC 92) while their ASCII forms
+// are 1 byte, so the folded string is generally shorter and the offsets diverge;
+// the map is what lets the caller recover the original (unfolded) title region.
+func foldDigitsWithMap(s string) (folded string, foldMap []int) {
 	hasFW := false
 	for _, r := range s {
 		if r >= 0xFF10 && r <= 0xFF19 {
@@ -177,18 +190,41 @@ func foldDigitsToASCII(s string) string {
 		}
 	}
 	if !hasFW {
-		return s
+		// No folding: offsets are identity. Build a trivial 1:1 map.
+		foldMap = make([]int, len(s)+1)
+		for i := range foldMap {
+			foldMap[i] = i
+		}
+		return s, foldMap
 	}
 	var b strings.Builder
 	b.Grow(len(s))
-	for _, r := range s {
+	foldMap = make([]int, 0, len(s)+1)
+	prevOrig := 0
+	for orig, r := range s { // orig is the byte offset of r in s
+		// Emit the byte map for the run we just finished (the bytes of the previous
+		// rune): each original byte position maps to itself.
+		for k := prevOrig; k < orig; k++ {
+			foldMap = append(foldMap, k)
+		}
+		prevOrig = orig
 		if r >= 0xFF10 && r <= 0xFF19 {
-			b.WriteRune(r - 0xFEE0)
+			// One folded ASCII byte standing in for the 3-byte fullwidth rune; map it
+			// to the start of that rune. The next iteration advances prevOrig past
+			// the full original rune, so the original bytes are skipped in the map.
+			b.WriteByte(byte('0' + byte(r-0xFF10)))
+			foldMap = append(foldMap, orig)
+			prevOrig = orig + len(string(r))
 			continue
 		}
-		b.WriteRune(r)
+		b.WriteString(s[orig : orig+len(string(r))])
 	}
-	return b.String()
+	// Map any trailing run (bytes of the final rune) and the end sentinel.
+	for k := prevOrig; k < len(s); k++ {
+		foldMap = append(foldMap, k)
+	}
+	foldMap = append(foldMap, len(s)) // final sentinel == end of original
+	return b.String(), foldMap
 }
 
 // standaloneToken reports whether the [start,end) digit run is bounded by

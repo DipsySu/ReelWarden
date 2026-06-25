@@ -123,6 +123,60 @@ func TestRepairFilename_MultipleHypothesesAndHintFiltering(t *testing.T) {
 	}
 }
 
+func TestRepairFilename_FencedJSONReplyIsRecovered(t *testing.T) {
+	// Typical local-model output wraps the JSON in a ```json code fence and adds
+	// prose around it. parseHypotheses must extract the JSON payload before
+	// decoding; a naive json.Unmarshal of the whole reply yields zero
+	// hypotheses and defeats R4 (authority §14.9).
+	reply := "Sure! Here is the repaired title:\n\n" +
+		"```json\n" +
+		`{"hypotheses":[{"title":"低智商犯罪","media_type_hint":"movie"}]}` + "\n" +
+		"```\n\n" +
+		"Let me know if you need anything else."
+	fake := &fakeLLM{reply: reply}
+	got, err := RepairFilename(context.Background(), fake, Signals{
+		RawFileName:   "低zhi商犯罪.2018.1080p.mkv",
+		ParentDirName: "movies",
+		RelativeDir:   "movies",
+	})
+	if err != nil {
+		t.Fatalf("RepairFilename: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 hypothesis from fenced reply, got %d: %+v", len(got), got)
+	}
+	if got[0].Title != "低智商犯罪" {
+		t.Errorf("title = %q, want %q", got[0].Title, "低智商犯罪")
+	}
+	if got[0].MediaType != "movie" {
+		t.Errorf("media_type = %q, want movie", got[0].MediaType)
+	}
+	if got[0].Source != HypothesisSource {
+		t.Errorf("source = %q, want %q", got[0].Source, HypothesisSource)
+	}
+}
+
+func TestRepairFilename_ProseWrappedJSONIsRecovered(t *testing.T) {
+	// No code fence, just prose preamble/suffix around the JSON object. The
+	// first balanced {...} must be located. Braces inside a string value (the
+	// repaired title) must not confuse the balance tracking.
+	reply := `The repaired result is: {"hypotheses":[{"title":"Title {with} braces","media_type_hint":"tv"}]} -- done.`
+	fake := &fakeLLM{reply: reply}
+	got, err := RepairFilename(context.Background(), fake, Signals{RawFileName: "x.mkv"})
+	if err != nil {
+		t.Fatalf("RepairFilename: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 hypothesis from prose-wrapped reply, got %d: %+v", len(got), got)
+	}
+	if got[0].Title != "Title {with} braces" {
+		t.Errorf("title = %q, want %q", got[0].Title, "Title {with} braces")
+	}
+	if got[0].MediaType != "tv" {
+		t.Errorf("media_type = %q, want tv", got[0].MediaType)
+	}
+}
+
 func TestRepairFilename_MalformedOrEmptyResponseYieldsNoHypotheses(t *testing.T) {
 	cases := []string{"", "not json", `{"hypotheses": "oops"}`, "   "}
 	for _, reply := range cases {

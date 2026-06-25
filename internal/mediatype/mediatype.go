@@ -48,8 +48,23 @@ var priority = map[string]int{
 // not by themselves force a type, so they are tracked separately.
 var liveActionMarkers = []string{"真人", "实写", "實寫", "实拍", "實拍", "live action", "liveaction", "live-action"}
 
-// tvMarkers flag episodic / television content.
-var tvMarkers = []string{"电视版", "電視版", "tv版", "drama", "剧集", "劇集", "连续剧", "連續劇", "电视剧", "電視劇", "season", "series"}
+// tvMarkers flag episodic / television content. These are matched as plain
+// substrings: the CJK markers are unambiguous and the ASCII ones ("tv版",
+// "drama") do not collide with ordinary title words.
+//
+// The English "season"/"series" markers are intentionally NOT here. As bare
+// words they appear inside ordinary title tokens ("The Seasoning House") and,
+// as standalone words, inside legitimate film titles ("Series 7: The
+// Contenders"). They are handled by matchTV, which requires the constrained
+// "Season N"/"Series N" form (see tvSeasonMarkers / matchTV).
+var tvMarkers = []string{"电视版", "電視版", "tv版", "drama", "剧集", "劇集", "连续剧", "連續劇", "电视剧", "電視劇"}
+
+// tvSeasonMarkers are English season/series words that only count as a TV
+// signal in the constrained "<marker> <number>" trailing form (e.g.
+// "Season 1", "Series 3"), where the number is the final token. This excludes
+// substring hits ("Seasoning") and titles that merely begin with the word
+// followed by more title text ("Series 7 The Contenders").
+var tvSeasonMarkers = []string{"season", "series"}
 
 // movieMarkers flag theatrical / film content.
 var movieMarkers = []string{"剧场版", "劇場版", "movie", "theatrical", "the movie", "gekijouban", "gekijo-ban"}
@@ -81,7 +96,7 @@ func Hint(fileName, parentDir string) string {
 	if containsAny(hay, movieMarkers) {
 		hits[HintMovie] = true
 	}
-	tv := containsAny(hay, tvMarkers)
+	tv := containsAny(hay, tvMarkers) || matchTV(hay)
 	if tv {
 		hits[HintTV] = true
 	}
@@ -107,6 +122,104 @@ func matchSpecial(hay string) bool {
 			continue
 		}
 		if strings.Contains(hay, m) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchTV reports a TV signal from English season/series markers without the
+// false positives of unbounded substring matching. It accepts two constrained
+// forms only:
+//
+//   - "<marker> <number>" where marker is a standalone "season"/"series" token
+//     and number is the final token (e.g. "Season 1", "Series 3"). A trailing
+//     title after the number ("Series 7 The Contenders") is rejected because
+//     there the word is part of the title, not a season ordinal.
+//   - a standalone "Sxx" episode-style token (e.g. "s01"), bounded by
+//     separators.
+//
+// hay is assumed already normalized (lowercased, separators preserved).
+func matchTV(hay string) bool {
+	for _, m := range tvSeasonMarkers {
+		if matchSeasonNumber(hay, m) {
+			return true
+		}
+	}
+	return matchSxx(hay)
+}
+
+// matchSeasonNumber reports whether hay contains a standalone marker token
+// immediately followed (across separators) by a number token that is the final
+// token in hay.
+func matchSeasonNumber(hay, marker string) bool {
+	start := 0
+	for {
+		i := strings.Index(hay[start:], marker)
+		if i < 0 {
+			return false
+		}
+		i += start
+		end := i + len(marker)
+		leftOK := i == 0 || isSep(rune(hay[i-1]))
+		rightOK := end == len(hay) || isSep(rune(hay[end]))
+		if leftOK && rightOK {
+			// Skip separators, then require an all-digit token that runs to the
+			// end of hay.
+			j := end
+			for j < len(hay) && isSep(rune(hay[j])) {
+				j++
+			}
+			if j < len(hay) && allDigitsToEnd(hay, j) {
+				return true
+			}
+		}
+		start = end
+		if start >= len(hay) {
+			return false
+		}
+	}
+}
+
+// allDigitsToEnd reports whether hay[from:] begins with one non-empty run of
+// ASCII digits and has no further title tokens after it — only separators (or
+// nothing) may trail. This makes "Series 3" and "Series 3 " (the latter from
+// Hint appending " "+parentDir) both count, while "Series 7 the contenders"
+// does not.
+func allDigitsToEnd(hay string, from int) bool {
+	if from >= len(hay) || hay[from] < '0' || hay[from] > '9' {
+		return false
+	}
+	k := from
+	for k < len(hay) && hay[k] >= '0' && hay[k] <= '9' {
+		k++
+	}
+	for ; k < len(hay); k++ {
+		if !isSep(rune(hay[k])) {
+			return false
+		}
+	}
+	return true
+}
+
+// matchSxx reports whether hay contains a standalone "s<digits>" token (e.g.
+// "s01"), the conventional season marker in scene release names.
+func matchSxx(hay string) bool {
+	for i := 0; i < len(hay); i++ {
+		if hay[i] != 's' {
+			continue
+		}
+		if i != 0 && !isSep(rune(hay[i-1])) {
+			continue
+		}
+		j := i + 1
+		for j < len(hay) && hay[j] >= '0' && hay[j] <= '9' {
+			j++
+		}
+		if j == i+1 { // no digits followed
+			continue
+		}
+		if j == len(hay) || isSep(rune(hay[j])) {
 			return true
 		}
 	}

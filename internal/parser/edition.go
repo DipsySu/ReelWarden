@@ -82,7 +82,12 @@ var editionSpecs = []struct {
 	name string
 	re   *regexp.Regexp
 }{
-	{"Director's Cut", reTag(`director'?s[ ]?cut|dc`)},
+	// The spelled-out "director's cut" form is unambiguous anywhere. The bare "dc"
+	// abbreviation is only treated as an edition in a real edition context (it must
+	// follow title text, never be the leading title token), so a *leading* "DC"
+	// stays in the title (e.g. "DC League of Super-Pets"). See dcAbbrevRE.
+	{"Director's Cut", reTag(`director'?s[ ]?cut`)},
+	{"Director's Cut", dcAbbrevRE},
 	{"Extended Edition", reTag(`extended(?:[ ](?:cut|edition|version))?`)},
 	{"Theatrical Cut", reTag(`theatrical(?:[ ]cut)?`)},
 	{"Unrated", reTag(`unrated`)},
@@ -93,6 +98,14 @@ var editionSpecs = []struct {
 	{"IMAX Edition", reTag(`imax[ ]edition`)},
 	{"Anniversary Edition", reTag(`(?:\d+th[ ])?anniversary(?:[ ]edition)?`)},
 }
+
+// dcAbbrevRE matches the bare "dc" Director's-Cut abbreviation only in a real
+// edition context: it requires a literal leading space, so the token can never be
+// the leading title token. This keeps a *leading* "DC" as a title token (e.g.
+// "DC.League.of.Super-Pets", working string "DC League of Super Pets ...") while
+// still recognizing the trailing edition form "Movie Title DC 2009". The required
+// leading space is reinserted by removeMatch so the preceding token survives.
+var dcAbbrevRE = regexp.MustCompile(`(?i)[ ](?:dc)(?:[ ]|$)`)
 
 // --- release group ---
 
@@ -148,20 +161,56 @@ func extractReleaseGroup(raw string) (group, rest string) {
 	rest = strings.TrimSpace(raw)
 	if m := bracketGroupRE.FindStringSubmatchIndex(rest); m != nil {
 		cand := strings.TrimSpace(rest[m[2]:m[3]])
-		if cand != "" && !looksLikeTechnical(cand) {
+		// Mirror the trailing-group guards: a leading "[2021]" is a year, not a
+		// release group, and a single character is too short to be a real group.
+		// Without these guards "[2021] The Northman" would yield group "2021" and
+		// lose the year (the year pass never sees the bracketed token).
+		if cand != "" && len(cand) >= 2 && !looksLikeTechnical(cand) && !yearOnlyRE.MatchString(cand) {
 			return cand, strings.TrimSpace(rest[m[1]:])
 		}
 	}
 	if m := trailingGroupRE.FindStringSubmatchIndex(rest); m != nil {
 		cand := strings.TrimSpace(rest[m[2]:m[3]])
+		prefix := strings.TrimSpace(rest[:m[0]])
+		// A trailing hyphen segment is ambiguous: it can be a scene "-GROUP" suffix
+		// OR the second half of a hyphenated title ("Spider-Man", "X-Men",
+		// "Mission-Impossible"). Only treat a hyphen segment as a release group when
+		// the prefix carries real release markers (a standalone year or a
+		// technical/edition tag). A bracketed "[GROUP]" container is unambiguous, so
+		// it is exempt from this requirement.
+		hyphenSep := m[0] < len(rest) && rest[m[0]] == '-'
 		if cand != "" && len(cand) >= 2 && !looksLikeTechnical(cand) && !yearOnlyRE.MatchString(cand) {
-			return cand, strings.TrimSpace(rest[:m[0]])
+			if !hyphenSep || hasReleaseMarkers(prefix) {
+				return cand, prefix
+			}
 		}
 	}
 	return "", rest
 }
 
 var yearOnlyRE = regexp.MustCompile(`^(?:19|20)[0-9]{2}$`)
+
+// hasReleaseMarkers reports whether s carries a hallmark of a real scene/release
+// name: a standalone 4-digit release year, or any recognized technical/edition
+// tag. Plain hyphenated titles ("Spider-Man", "Mission-Impossible") have neither,
+// so a trailing hyphen segment after such a prefix is title text, not a group.
+func hasReleaseMarkers(s string) bool {
+	probe := collapseSpaces(separatorsToSpaces(s))
+	if probe == "" {
+		return false
+	}
+	for _, f := range strings.Fields(probe) {
+		if yearOnlyRE.MatchString(f) {
+			return true
+		}
+		// Scan field-by-field as well as whole-string so a tag glued among title
+		// words is still detected.
+		if looksLikeTechnical(f) {
+			return true
+		}
+	}
+	return looksLikeTechnical(probe)
+}
 
 func looksLikeTechnical(s string) bool {
 	probe := " " + strings.ToLower(s) + " "

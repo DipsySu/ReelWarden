@@ -62,8 +62,29 @@ func Discover(mediaPath string) (string, bool) {
 			return p, true
 		}
 	}
-	if matches, _ := filepath.Glob(filepath.Join(dir, "*.nfo")); len(matches) == 1 {
-		return matches[0], true
+	// Fall back to the single *.nfo in the directory, if exactly one exists.
+	// Enumerate with os.ReadDir rather than filepath.Glob: glob metacharacters
+	// in the directory name (e.g. "[NekoSub] Dune (2021)") would otherwise be
+	// interpreted as a pattern and break the lookup.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", false
+	}
+	match := ""
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if strings.EqualFold(filepath.Ext(e.Name()), ".nfo") {
+			if match != "" {
+				// More than one *.nfo: ambiguous, do not guess.
+				return "", false
+			}
+			match = filepath.Join(dir, e.Name())
+		}
+	}
+	if match != "" {
+		return match, true
 	}
 	return "", false
 }

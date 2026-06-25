@@ -208,14 +208,19 @@ func unifySeparators(s string) string {
 
 // ----- simple roman numerals -----
 
+// romanValues intentionally omits the single-letter numerals "I", "V" and "X":
+// they collide with real one-letter title tokens ("I Am Legend", "V for Vendetta",
+// "Malcolm X", the film "X"). Only multi-letter numerals (II..XIII, IV, IX) are
+// safe to fold. This keeps "Rocky II" -> "rocky 2" while leaving bare V/X/I alone.
 var romanValues = map[string]int{
-	"ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7, "viii": 8, "ix": 9,
-	"x": 10, "xi": 11, "xii": 12, "xiii": 13,
+	"ii": 2, "iii": 3, "iv": 4, "vi": 6, "vii": 7, "viii": 8, "ix": 9,
+	"xi": 11, "xii": 12, "xiii": 13,
 }
 
-// romanizeNumerals rewrites standalone roman numerals (II..XIII) into Arabic
-// digits so "Rocky II" and "Rocky 2" compare equal. "I" is intentionally excluded
-// (too ambiguous with the pronoun / single letters). Case-insensitive.
+// romanizeNumerals rewrites standalone roman numerals (multi-letter II..XIII) into
+// Arabic digits so "Rocky II" and "Rocky 2" compare equal. The single-letter forms
+// I, V and X are intentionally excluded (too ambiguous with one-letter title
+// tokens). Case-insensitive.
 func romanizeNumerals(s string) string {
 	if s == "" {
 		return s

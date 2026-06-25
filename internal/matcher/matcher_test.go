@@ -327,3 +327,99 @@ func TestToStoreCandidate(t *testing.T) {
 		t.Fatal("bridge dropped evidence")
 	}
 }
+
+// Regression (bridge.go): ToStoreCandidate must carry the candidate Title and Year
+// through ScoreResult into store.Candidate. Before the fix these were dropped, so a
+// scanner-persisted candidate came back Title="" Year=0 and naming.JellyfinPath then
+// renamed the file to "Unknown Movie". A scored candidate must round-trip to a
+// store.Candidate with the non-empty Title and the correct Year.
+func TestToStoreCandidateCarriesTitleAndYear(t *testing.T) {
+	const wantTitle, wantYear = "V for Vendetta", 2005
+	res := ScoreCandidate(
+		localID("V for Vendetta", 2005),
+		ProviderCandidate{Provider: "mock", ProviderItemID: "752", MediaType: MediaMovie, Title: wantTitle, Year: wantYear},
+	)
+	// The score result itself must expose the passthrough fields.
+	if res.Title != wantTitle || res.Year != wantYear {
+		t.Fatalf("ScoreResult dropped title/year: title=%q year=%d", res.Title, res.Year)
+	}
+	sc := ToStoreCandidate("asset_1", res)
+	if sc.Title != wantTitle {
+		t.Fatalf("store.Candidate.Title = %q, want %q (title dropped -> rename would be 'Unknown Movie')", sc.Title, wantTitle)
+	}
+	if sc.Year != wantYear {
+		t.Fatalf("store.Candidate.Year = %d, want %d", sc.Year, wantYear)
+	}
+}
+
+// Regression (matcher.go externalIDGroup): when more than one local external id
+// matches the candidate, the emitted evidence detail must be deterministic. Go map
+// iteration is randomized, so selecting the matched namespace by ranging the map made
+// the persisted evidence detail vary across runs. The group must always select the
+// lexicographically-first matching namespace.
+func TestExternalIDGroupDeterministicSelection(t *testing.T) {
+	local := Local{
+		Identity:    store.ParsedIdentity{RawTitle: "Dune", NormalizedTitle: "Dune", Year: 2021},
+		ExternalIDs: map[string]string{"tmdb": "438631", "imdb": "tt1160419", "tvdb": "999"},
+	}
+	c := ProviderCandidate{
+		ProviderItemID: "438631", MediaType: MediaMovie, Title: "Dune", Year: 2021,
+		// All three namespaces match, so the un-pinned implementation could pick any.
+		ExternalIDs: map[string]string{"tmdb": "438631", "imdb": "tt1160419", "tvdb": "999"},
+	}
+	g, ok := externalIDGroup(local, c)
+	if !ok {
+		t.Fatal("expected an external_id match")
+	}
+	// "imdb" sorts before "tmdb" and "tvdb", so it must be the selected detail.
+	const wantDetail = "imdb:tt1160419 == imdb:tt1160419"
+	if g.SelectedEvidence.Detail != wantDetail {
+		t.Fatalf("selected detail = %q, want %q (non-deterministic namespace selection)", g.SelectedEvidence.Detail, wantDetail)
+	}
+	// Stability: many runs must all agree on the same detail.
+	for i := 0; i < 200; i++ {
+		gi, _ := externalIDGroup(local, c)
+		if gi.SelectedEvidence.Detail != wantDetail {
+			t.Fatalf("run %d selected %q, want stable %q", i, gi.SelectedEvidence.Detail, wantDetail)
+		}
+	}
+}
+
+// Regression (normalizer divergence): the matcher previously re-implemented title
+// normalization, omitting roman numerals / CJK punctuation / simp-trad folding, so
+// the provider side and the local id.NormalizedTitle diverged and exact-match recall
+// broke. Both sides now share parser.NormalizeTitle. "V for Vendetta" (local) and
+// "V for Vendetta" (candidate) must normalize identically and hit the exact-title
+// signal, and a roman-numeral spelling difference must still fold to exact.
+func TestSharedNormalizerExactTitle(t *testing.T) {
+	// Exact-title signal across the V-for-Vendetta case (matches the prompt repro).
+	res := ScoreCandidate(
+		localID("V for Vendetta", 2005),
+		ProviderCandidate{ProviderItemID: "1", MediaType: MediaMovie, Title: "V for Vendetta", Year: 2005},
+	)
+	g, ok := findGroup(res.Evidence, "title")
+	if !ok {
+		t.Fatal("no title group emitted")
+	}
+	if g.SelectedEvidence.Type != "normalized_title_exact" {
+		t.Fatalf("title signal = %q, want normalized_title_exact (normalizers diverged?)", g.SelectedEvidence.Type)
+	}
+	if g.SelectedEvidence.Contribution != round4(wTitleMax) {
+		t.Fatalf("exact title contribution = %v, want %v", g.SelectedEvidence.Contribution, round4(wTitleMax))
+	}
+
+	// Roman-numeral fold: the old matcher normalizer left "II" intact, so "Rocky II"
+	// (local) vs "Rocky 2" (provider) would have been only a fuzzy match. The shared
+	// parser normalizer rewrites both to "rocky 2" -> exact.
+	roman := ScoreCandidate(
+		localID("Rocky II", 1979),
+		ProviderCandidate{ProviderItemID: "2", MediaType: MediaMovie, Title: "Rocky 2", Year: 1979},
+	)
+	rg, ok := findGroup(roman.Evidence, "title")
+	if !ok {
+		t.Fatal("no title group emitted for roman-numeral case")
+	}
+	if rg.SelectedEvidence.Type != "normalized_title_exact" {
+		t.Fatalf("roman-numeral title signal = %q, want normalized_title_exact (roman numerals not folded by matcher)", rg.SelectedEvidence.Type)
+	}
+}

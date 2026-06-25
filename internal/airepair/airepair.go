@@ -115,17 +115,102 @@ var allowedMediaTypeHints = map[string]struct{}{
 	"special":       {},
 }
 
+// extractJSON pulls the JSON payload out of an untrusted model reply. Local
+// models routinely wrap their answer in a markdown code fence (```json ... ```)
+// or surround it with prose preamble/suffix, so a naive json.Unmarshal of the
+// whole reply would parse to zero hypotheses and silently defeat R4. This
+// strips fences and then locates the first balanced {...} or [...] span,
+// tracking string literals/escapes so braces inside string values do not throw
+// off the depth count. The returned slice is still UNTRUSTED: malformed,
+// empty, or unbalanced input yields "" and the caller emits zero hypotheses
+// (never an error). The prompt-side §7.4 delimiting of inputs is unchanged.
+func extractJSON(raw string) string {
+	s := stripCodeFences(strings.TrimSpace(raw))
+	for i, r := range s {
+		var open, close byte
+		switch r {
+		case '{':
+			open, close = '{', '}'
+		case '[':
+			open, close = '[', ']'
+		default:
+			continue
+		}
+		if span, ok := balancedSpan(s[i:], open, close); ok {
+			return span
+		}
+	}
+	return ""
+}
+
+// stripCodeFences removes a single surrounding markdown code fence, including an
+// optional language tag (```json). If no closing fence is present the opening
+// fence line is still dropped so the remaining text can be scanned for JSON.
+func stripCodeFences(s string) string {
+	const fence = "```"
+	start := strings.Index(s, fence)
+	if start < 0 {
+		return s
+	}
+	// Drop everything up to and including the rest of the opening fence line
+	// (which may carry a language tag such as "json").
+	rest := s[start+len(fence):]
+	if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+		rest = rest[nl+1:]
+	}
+	if end := strings.Index(rest, fence); end >= 0 {
+		rest = rest[:end]
+	}
+	return strings.TrimSpace(rest)
+}
+
+// balancedSpan returns the substring of s starting at its first byte (which
+// must be open) through the matching close delimiter, honoring JSON string
+// literals and escapes so delimiters inside strings are ignored. ok is false if
+// no balanced span exists.
+func balancedSpan(s string, open, close byte) (string, bool) {
+	depth := 0
+	inStr := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if inStr {
+			switch {
+			case escaped:
+				escaped = false
+			case c == '\\':
+				escaped = true
+			case c == '"':
+				inStr = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inStr = true
+		case open:
+			depth++
+		case close:
+			depth--
+			if depth == 0 {
+				return s[:i+1], true
+			}
+		}
+	}
+	return "", false
+}
+
 // parseHypotheses defensively decodes the model response. The response is
 // untrusted, so anything that is not a well-formed hypothesis with a non-empty
 // repaired title is discarded. Media-type hints outside the allowed vocabulary
 // are cleared rather than propagated.
 func parseHypotheses(raw string) []store.QueryHypothesis {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
+	payload := extractJSON(raw)
+	if payload == "" {
 		return nil
 	}
 	var resp repairResponse
-	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+	if err := json.Unmarshal([]byte(payload), &resp); err != nil {
 		return nil
 	}
 	var out []store.QueryHypothesis

@@ -40,6 +40,8 @@ func ToStoreCandidate(assetID string, r ScoreResult) store.Candidate {
 		AssetID:    assetID,
 		Provider:   r.Provider,
 		ProviderID: r.ProviderItemID,
+		Title:      r.Title, // carried from ProviderCandidate.Title via ScoreResult; was dropped -> "Unknown Movie" on rename
+		Year:       r.Year,  // carried from ProviderCandidate.Year via ScoreResult
 		Score:      scaleScore(r.RankScore),
 		ScoreBand:  r.ScoreBand, // float-derived band, not recomputed from the int
 		Evidence:   ev,
