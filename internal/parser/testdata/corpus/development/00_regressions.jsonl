@@ -1,0 +1,23 @@
+# Permanent regression entries — every file-name shape called out in the code review.
+# Do not delete. Each line pins the exact failure scenario as authorable ground truth.
+#
+# Hyphenated titles must NOT have their tail stripped as a release group.
+{"filename": "Spider-Man.mkv", "title": "Spider-Man", "edition": "", "note": "hyphenated title, no year, not split into group"}
+{"filename": "X-Men.mkv", "title": "X-Men", "edition": "", "note": "hyphenated title, no year, not split into group"}
+{"filename": "Mission-Impossible.mkv", "title": "Mission-Impossible", "edition": "", "note": "hyphenated title preserved verbatim (no markers to split on)"}
+# Leading 'DC' is a title word, not a Director's Cut edition.
+{"filename": "DC.League.of.Super-Pets.2022.1080p.BluRay.x264.mkv", "title": "DC League of Super-Pets", "year": 2022, "edition": "", "note": "leading DC is a title word, NOT Director's Cut"}
+# Single-letter title words must not be romanized into digits.
+{"filename": "V.for.Vendetta.2005.1080p.BluRay.mkv", "title": "V for Vendetta", "year": 2005, "edition": "", "note": "leading V must not become 5"}
+{"filename": "Malcolm.X.1992.mkv", "title": "Malcolm X", "year": 1992, "edition": "", "note": "trailing X must not become 10"}
+# Leading bracketed year must be recovered as a year, leaving no bogus release group.
+{"filename": "[2021] The Northman.mkv", "title": "The Northman", "year": 2021, "edition": "", "note": "leading [2021] is a year, not a group"}
+# Fullwidth digit that is part of the TITLE must survive verbatim (not folded to ASCII).
+{"filename": "赌侠２.1991.BluRay.mkv", "title": "赌侠２", "year": 1991, "edition": "", "note": "fullwidth ２ kept in title; real year recovered"}
+{"filename": "Ｄｕｎｅ　２０２１.mkv", "title": "Ｄｕｎｅ", "year": 2021, "edition": "", "note": "fullwidth CJK-width title + fullwidth year"}
+# Titles whose body is a number must be protected; the real year is the trailing token.
+{"filename": "Blade Runner 2049 (2017).mkv", "title": "Blade Runner 2049", "year": 2017, "edition": "", "note": "title digits 2049 kept; 2017 is the year"}
+{"filename": "2046.2004.1080p.BluRay.mkv", "title": "2046", "year": 2004, "edition": "", "note": "numeric title 2046; 2004 is the year"}
+{"filename": "1917.mkv", "title": "1917", "edition": "", "note": "numeric-only title, no separate year -> year absent (not fabricated)"}
+# Non-CJK title that is easily mistaken for a release-group artifact ('House').
+{"filename": "The.Seasoning.House.2012.1080p.BluRay.x264.mkv", "title": "The Seasoning House", "year": 2012, "edition": "", "note": "full title kept; trailing words not stripped"}

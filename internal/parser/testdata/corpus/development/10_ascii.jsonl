@@ -1,0 +1,19 @@
+# English-language file names: groups, technical tags, editions, numeric titles.
+{"filename": "Dune.2021.1080p.BluRay.x264-RARBG.mkv", "title": "Dune", "year": 2021, "edition": "", "note": "ascii + release group"}
+{"filename": "The.Matrix.1999.1080p.BluRay.x264-AMIABLE.mkv", "title": "The Matrix", "year": 1999, "edition": "", "note": "ascii + group"}
+{"filename": "Inception.2010.2160p.UHD.BluRay.x265-TERMINAL.mkv", "title": "Inception", "year": 2010, "edition": "", "note": "uhd tags"}
+{"filename": "The.Lord.of.the.Rings.Extended.Edition.2001.1080p.mkv", "title": "The Lord of the Rings", "year": 2001, "edition": "Extended Edition", "note": "edition kept out of title and tags"}
+{"filename": "Movie.Title.2023.Directors.Cut.2160p.HDR.DV.Atmos-XYZ.mkv", "title": "Movie Title", "year": 2023, "edition": "Director's Cut", "note": "directors cut + hdr/dv/atmos"}
+{"filename": "Avatar.2009.EXTENDED.2160p.UHD.BluRay.REMUX.mkv", "title": "Avatar", "year": 2009, "edition": "Extended Edition", "note": "EXTENDED token -> Extended Edition"}
+{"filename": "Rocky.II.1979.mkv", "title": "Rocky II", "edition": "", "year": 1979, "note": "roman numeral sequel preserved in title"}
+{"filename": "Se7en.1995.1080p.BluRay.x264.mkv", "title": "Se7en", "year": 1995, "edition": "", "note": "embedded digit in title word kept"}
+{"filename": "WALL-E.2008.1080p.BluRay.mkv", "title": "WALL-E", "year": 2008, "edition": "", "note": "hyphenated title with trailing letter"}
+{"filename": "District.9.2009.1080p.BluRay.mkv", "title": "District 9", "year": 2009, "edition": "", "note": "trailing standalone digit is title, not year/group"}
+{"filename": "2001.A.Space.Odyssey.1968.1080p.BluRay.mkv", "title": "2001 A Space Odyssey", "year": 1968, "edition": "", "note": "leading numeric title word kept; 1968 is the year"}
+{"filename": "300.2006.1080p.BluRay.x264.mkv", "title": "300", "year": 2006, "edition": "", "note": "numeric title 300; 2006 is the year"}
+{"filename": "21.Jump.Street.2012.1080p.BluRay.mkv", "title": "21 Jump Street", "year": 2012, "edition": "", "note": "leading numeric title word kept"}
+{"filename": "Ocean's.Eleven.2001.1080p.BluRay.mkv", "title": "Ocean's Eleven", "year": 2001, "edition": "", "note": "apostrophe preserved"}
+{"filename": "The.Northman.2022.PROPER.1080p.BluRay.x264-GROUP.mkv", "title": "The Northman", "year": 2022, "edition": "", "note": "PROPER tag stripped, title clean"}
+{"filename": "Amelie.2001.1080p.BluRay.mkv", "title": "Amelie", "year": 2001, "edition": "", "note": "single-word ascii title"}
+{"filename": "Léon.The.Professional.1994.1080p.BluRay.mkv", "title": "Léon The Professional", "year": 1994, "edition": "", "note": "accented latin letter preserved"}
+{"filename": "Mission.Impossible.1996.1080p.BluRay.x264.mkv", "title": "Mission Impossible", "year": 1996, "edition": "", "note": "dot-separated multiword title"}
